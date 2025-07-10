@@ -70,17 +70,17 @@ A aplicação, que será acessada em ambiente autenticado via Active Directory (
 ## 🧭 Diagrama de Arquitetura
 
 ```mermaid
-graph TD
-    Z[Azure AD\n(Autenticação Corporativa)] --> A[Frontend (React + Tailwind)]
-    A -->|Input (código / arquivo / URL)| B[FastAPI Backend]
-    B --> C[LangGraph + LangChain]
-    C --> D[LLM Azure OpenAI]
-    D --> C
-    C --> E[Resposta formatada\n(Testes Unitários)]
-    E --> B
-    B --> A
-    B -->|Exportação| F[Arquivo de Teste\n(.py / .js / .java)]
-    C -->|Se URL GitLab| G[API GitLab]
+graph TD;
+    Z[Azure AD - Autenticação Corporativa] --> A[Frontend - React + Tailwind];
+    A -->|Input código / arquivo / URL| B[FastAPI Backend];
+    B --> C[LangGraph + LangChain];
+    C --> D[LLM Azure OpenAI];
+    D --> C;
+    C --> E[Resposta formatada - Testes Unitários];
+    E --> B;
+    B --> A;
+    B -->|Exportação| F[Arquivo de Teste .py / .js / .java];
+    C -->|Se URL GitLab| G[API GitLab];
 ```
 
 ---
