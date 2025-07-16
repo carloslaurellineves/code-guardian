@@ -112,8 +112,9 @@ codeguardian/
 │   └── utils/
 │       └── gitlab_connector.py
 └── requirements.txt
+```
 
-## Fluxograma da aplicação
+## 📲 Fluxograma da aplicação
 
 ```mermaid
 flowchart TD
