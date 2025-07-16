@@ -52,10 +52,25 @@ def start_frontend():
     """
     print("🎨 Iniciando Code Guardian Frontend...")
     
-    # TODO: Implementar inicialização do Streamlit
-    # Por enquanto, apenas uma mensagem
-    print("⚠️  Frontend Streamlit será implementado em fase posterior")
-    print("📖 Para acessar a API, utilize: http://localhost:8000/docs")
+    try:
+        # Verificar se o arquivo do Streamlit existe
+        streamlit_app_path = Path(__file__).parent / "app" / "streamlit_app.py"
+        if not streamlit_app_path.exists():
+            print("❌ Arquivo streamlit_app.py não encontrado")
+            return
+        
+        # Iniciar Streamlit
+        import subprocess
+        subprocess.run([
+            sys.executable, "-m", "streamlit", "run", 
+            str(streamlit_app_path),
+            "--server.port", "8501",
+            "--server.address", "0.0.0.0"
+        ])
+        
+    except Exception as e:
+        print(f"❌ Erro ao inicializar frontend: {e}")
+        print("💡 Tente executar manualmente: streamlit run app/streamlit_app.py")
 
 
 def run_tests():
@@ -100,9 +115,9 @@ def show_info():
    • Code Fixer: Identificação e correção de bugs
 
 🔧 Comandos disponíveis:
-   python main.py api      - Inicia a API (porta 8000)
-   python main.py frontend - Inicia o frontend Streamlit
-   python main.py test     - Executa os testes
+   python main.py api      - Inicia a API FastAPI (porta 8000)
+   python main.py frontend - Inicia o frontend Streamlit (porta 8501)
+   python main.py test     - Executa os testes unitários
    python main.py info     - Mostra estas informações
 
 🌐 Endpoints da API:
