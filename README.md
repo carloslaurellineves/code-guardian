@@ -96,22 +96,30 @@ A aplicação será construída com **foco em modularidade, escalabilidade e int
 ## 📁 Estrutura Inicial do Projeto
 
 ```plaintext
-codeguardian/
+code-guardian/
 ├── README.md
-├── app/
-│   ├── main.py                 # App principal (Streamlit)
-│   ├── pages/
-│   │   ├── Home.py
-│   │   ├── StoryCreator.py
-│   │   ├── CodeTester.py
-│   │   └── CodeFixer.py
-│   ├── agents/
-│   │   ├── story_agent.py
-│   │   ├── test_generator_agent.py
-│   │   └── bug_fixer_agent.py
-│   └── utils/
-│       └── gitlab_connector.py
-└── requirements.txt
+├── CONFIGURACAO.md
+├── main.py                     # App principal (Streamlit)
+├── pyproject.toml              # Gerenciamento de dependências
+├── uv.lock                     # Lockfile das dependências
+├── .env.example                # Exemplo de variáveis de ambiente
+├── .gitignore
+├── .python-version
+├── agents/                     # Agentes de IA para diferentes funcionalidades
+├── api/                        # Endpoints da API
+│   ├── __init__.py
+│   └── routers/
+│       ├── __init__.py
+│       ├── health.py           # Endpoint de saúde
+│       ├── story_creator.py    # Endpoints para criação de histórias
+│       ├── code_tester.py      # Endpoints para geração de testes
+│       └── code_fixer.py       # Endpoints para correção de código
+├── app/                        # Interface Streamlit
+├── config/                     # Configurações da aplicação
+├── schemas/                    # Esquemas Pydantic para validação
+├── services/                   # Serviços e lógica de negócio
+├── tests/                      # Testes unitários e de integração
+└── utils/                      # Utilitários e funções auxiliares
 ```
 
 ## 📲 Fluxograma da aplicação
