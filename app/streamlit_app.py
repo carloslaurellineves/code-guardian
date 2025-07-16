@@ -8,6 +8,7 @@ e inicializa os componentes necessários para o funcionamento da interface.
 import streamlit as st
 import sys
 from pathlib import Path
+from app.config.streamlit_config import ensure_wide_mode
 
 # Adicionar diretório raiz ao path
 root_dir = Path(__file__).parent.parent
@@ -27,6 +28,9 @@ def main():
     
     Configura a navegação entre páginas e inicializa o estado da sessão.
     """
+    # Aplicar configuração de wide mode
+    ensure_wide_mode()
+    
     # Inicializar estado da sessão
     initialize_session_state()
     

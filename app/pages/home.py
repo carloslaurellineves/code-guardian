@@ -136,9 +136,9 @@ class HomePage:
             st.success("""
             **📋 Navegação:**
             
-            • Use o **menu lateral** para alternar entre páginas
-            • Cada página tem instruções específicas
-            • Resultados são mantidos durante a sessão
+            • Use o **menu lateral** para alternar entre páginas \n
+            • Cada página tem instruções específicas \n
+            • Resultados são mantidos durante a sessão \n
             • Histórico de operações disponível
             """)
         
@@ -146,9 +146,9 @@ class HomePage:
             st.info("""
             **💡 Dicas de Interação:**
             
-            • Forneça contexto detalhado para melhores resultados
-            • Revise sempre as saídas geradas
-            • Experimente diferentes inputs
+            • Forneça contexto detalhado para melhores resultados \n
+            • Revise sempre as saídas geradas \n
+            • Experimente diferentes inputs \n 
             • Use os botões de "Copiar" para facilitar o uso
             """)
         
@@ -163,30 +163,30 @@ class HomePage:
             st.markdown("""
             **🎯 Entrada de Dados**
             
-            • Seja específico e detalhado
-            • Use exemplos quando possível
-            • Informe o contexto completo
-            • Descreva o objetivo claramente
+            • Seja específico e detalhado \n
+            • Use exemplos quando possível \n
+            • Informe o contexto completo \n
+            • Descreva o objetivo claramente \n
             """)
         
         with col2:
             st.markdown("""
             **🔍 Validação de Resultados**
             
-            • Revise sempre as saídas geradas
-            • Adapte aos padrões da instituição
-            • Teste os códigos sugeridos
-            • Valide a aderência aos requisitos
+            • Revise sempre as saídas geradas \n
+            • Adapte aos padrões da instituição \n
+            • Teste os códigos sugeridos \n
+            • Valide a aderência aos requisitos \n
             """)
         
         with col3:
             st.markdown("""
             **📈 Otimização**
             
-            • Experimente diferentes abordagens
-            • Use o histórico para comparar resultados
-            • Combine diferentes funcionalidades
-            • Documente as melhores práticas
+            • Experimente diferentes abordagens \n
+            • Use o histórico para comparar resultados\n
+            • Combine diferentes funcionalidades \n
+            • Documente as melhores práticas \n
             """)
         
         # Benefícios esperados

@@ -17,6 +17,7 @@ sys.path.insert(0, str(root_dir))
 
 from app.services.api_client import api_client
 from app.utils.session_state import get_session_value, set_session_value
+from app.config.streamlit_config import ensure_wide_mode
 
 
 class BasePage(ABC):
@@ -38,6 +39,16 @@ class BasePage(ABC):
         self.page_title = page_title
         self.page_icon = page_icon
         self.api_client = api_client
+        self._ensure_wide_mode()
+    
+    def _ensure_wide_mode(self):
+        """
+        Garante que a página esteja configurada para wide mode.
+        
+        Este método utiliza a configuração global para garantir
+        que o wide mode esteja aplicado e os estilos otimizados.
+        """
+        ensure_wide_mode()
     
     @abstractmethod
     def render(self):
