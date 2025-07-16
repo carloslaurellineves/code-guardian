@@ -84,6 +84,65 @@ def apply_custom_css():
             font-size: 0.9rem;
         }
         
+        /* Oculta os nomes das páginas na sidebar */
+        .css-1d391kg {
+            display: none !important;
+        }
+        
+        /* Oculta a navegação de páginas padrão do Streamlit */
+        .css-1rs6os .css-17ziqus {
+            display: none !important;
+        }
+        
+        /* Oculta a lista de páginas na sidebar */
+        .css-1lcbmhc .css-1d391kg {
+            display: none !important;
+        }
+        
+        /* Oculta os links de navegação das páginas */
+        .sidebar .sidebar-content .css-1d391kg {
+            display: none !important;
+        }
+        
+        /* Oculta o menu de navegação automático das páginas */
+        [data-testid="stSidebarNav"] {
+            display: none !important;
+        }
+        
+        /* Oculta a lista de páginas na sidebar */
+        .css-1lcbmhc {
+            display: none !important;
+        }
+        
+        /* Oculta navegação automática do Streamlit - seletores mais específicos */
+        .css-1lcbmhc.e1fqkh3o0 {
+            display: none !important;
+        }
+        
+        .css-1d391kg.e1fqkh3o1 {
+            display: none !important;
+        }
+        
+        /* Oculta seção de páginas na sidebar */
+        .css-1lcbmhc.e1fqkh3o3 {
+            display: none !important;
+        }
+        
+        /* Oculta links de páginas específicos */
+        .sidebar .element-container .css-1d391kg {
+            display: none !important;
+        }
+        
+        /* Oculta qualquer elemento com text-content dos nomes das páginas */
+        .sidebar .element-container:has-text('streamlit app'),
+        .sidebar .element-container:has-text('base page'),
+        .sidebar .element-container:has-text('code fixer'),
+        .sidebar .element-container:has-text('code tester'),
+        .sidebar .element-container:has-text('home'),
+        .sidebar .element-container:has-text('story creator') {
+            display: none !important;
+        }
+        
         /* Responsividade para diferentes tamanhos de tela */
         @media (max-width: 768px) {
             .main .block-container {

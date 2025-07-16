@@ -14,9 +14,10 @@ Este documento explica como foi implementada a configuração de "Wide Mode" par
 - Função `apply_custom_css()`: Aplica estilos CSS otimizados para wide mode
 - Função `ensure_wide_mode()`: Função principal que garante wide mode + estilos
 
-### 3. `app/pages/base_page.py`
+### 3. `app/views/base_page.py` (movido de `app/pages/`)
 - Adicionado método `_ensure_wide_mode()` que chama a configuração global
 - Garantia de que todas as páginas que herdam de `BasePage` tenham wide mode
+- Reorganizada estrutura para evitar navegação automática do Streamlit
 
 ### 4. `.streamlit/config.toml`
 - Adicionada configuração `wideMode = true` na seção `[ui]`

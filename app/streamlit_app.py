@@ -14,12 +14,40 @@ from app.config.streamlit_config import ensure_wide_mode
 root_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(root_dir))
 
-from app.pages.home import HomePage
-from app.pages.story_creator import StoryCreatorPage
-from app.pages.code_tester import CodeTesterPage
-from app.pages.code_fixer import CodeFixerPage
+from app.views.home import HomePage
+from app.views.story_creator import StoryCreatorPage
+from app.views.code_tester import CodeTesterPage
+from app.views.code_fixer import CodeFixerPage
 from app.utils.sidebar import create_sidebar
 from app.utils.session_state import initialize_session_state
+
+
+def hide_streamlit_navigation():
+    """
+    Oculta a navegação automática do Streamlit via JavaScript.
+    """
+    hide_nav_script = """
+    <script>
+        // Oculta navegação automática do Streamlit
+        var navElements = document.querySelectorAll('[data-testid="stSidebarNav"]');
+        navElements.forEach(function(el) {
+            el.style.display = 'none';
+        });
+        
+        // Oculta links de páginas na sidebar
+        var pageLinks = document.querySelectorAll('.css-1d391kg');
+        pageLinks.forEach(function(el) {
+            el.style.display = 'none';
+        });
+        
+        // Oculta lista de páginas
+        var pageList = document.querySelectorAll('.css-1lcbmhc');
+        pageList.forEach(function(el) {
+            el.style.display = 'none';
+        });
+    </script>
+    """
+    st.markdown(hide_nav_script, unsafe_allow_html=True)
 
 
 def main():
@@ -30,6 +58,9 @@ def main():
     """
     # Aplicar configuração de wide mode
     ensure_wide_mode()
+    
+    # Ocultar navegação automática do Streamlit
+    hide_streamlit_navigation()
     
     # Inicializar estado da sessão
     initialize_session_state()
