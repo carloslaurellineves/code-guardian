@@ -59,14 +59,32 @@ def start_frontend():
             print("❌ Arquivo streamlit_app.py não encontrado")
             return
         
+        # Determinar o endereço baseado no sistema operacional
+        server_address = "localhost" if os.name == "nt" else "0.0.0.0"
+        
+        print(f"🌐 Iniciando servidor em http://{server_address}:8501")
+        
         # Iniciar Streamlit
         import subprocess
-        subprocess.run([
+        
+        # Comando com parâmetros compatíveis com Windows
+        cmd = [
             sys.executable, "-m", "streamlit", "run", 
             str(streamlit_app_path),
             "--server.port", "8501",
-            "--server.address", "0.0.0.0"
-        ])
+            "--server.address", server_address,
+            "--server.headless", "true",
+            "--server.enableCORS", "false",
+            "--server.enableXsrfProtection", "false"
+        ]
+        
+        print(f"🔧 Executando comando: {' '.join(cmd)}")
+        
+        # Executar o comando
+        result = subprocess.run(cmd, cwd=Path(__file__).parent)
+        
+        if result.returncode != 0:
+            print(f"❌ Processo terminou com código de saída: {result.returncode}")
         
     except Exception as e:
         print(f"❌ Erro ao inicializar frontend: {e}")
@@ -116,7 +134,7 @@ def show_info():
 
 🔧 Comandos disponíveis:
    python main.py api      - Inicia a API FastAPI (porta 8000)
-   python main.py frontend - Inicia o frontend Streamlit (porta 8501)
+   python main.py frontend - Inicia o frontend Streamlit (http://localhost:8501)
    python main.py test     - Executa os testes unitários
    python main.py info     - Mostra estas informações
 
