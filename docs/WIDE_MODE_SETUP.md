@@ -53,7 +53,7 @@ A configuração é aplicada automaticamente. Não é necessário fazer nenhuma 
 Para criar uma nova página que automaticamente use wide mode:
 
 ```python
-from app.pages.base_page import BasePage
+from app.views.base_page import BasePage
 
 class MinhaNovaPage(BasePage):
     def __init__(self):

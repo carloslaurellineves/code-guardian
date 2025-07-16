@@ -14,7 +14,7 @@ import requests
 root_dir = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(root_dir))
 
-from app.pages.base_page import BasePage
+from app.views.base_page import BasePage
 from app.utils.session_state import get_session_value, set_session_value
 
 
