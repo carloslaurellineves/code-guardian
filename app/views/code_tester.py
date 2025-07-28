@@ -350,8 +350,8 @@ def test_function_with_external_dependency(mock_service):
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    # Codificar o teste em base64 para passar para o JavaScript
-                    test_encoded = base64.b64encode(test.encode('utf-8')).decode('utf-8')
+                    # Escape do teste para JavaScript, preservando UTF-8
+                    test_escaped = test.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
                     copy_button_id = f'copy-button-{i}'
                     
                     st.components.v1.html(
@@ -369,7 +369,7 @@ def test_function_with_external_dependency(mock_service):
                         <script>
                             document.getElementById('{copy_button_id}').onclick = function() {{
                                 try {{
-                                    const testCode = atob('{test_encoded}');
+                                    const testCode = "{test_escaped}";
                                     navigator.clipboard.writeText(testCode).then(function() {{
                                         alert('✅ Teste {i} copiado para a área de transferência!');
                                     }}).catch(function(err) {{
