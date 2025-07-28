@@ -249,10 +249,123 @@ Cenário: Falha na autenticação
                         if task.get('estimate'):
                             st.markdown(f"**Estimativa:** {task['estimate']}")
             
-            # Botão para limpar resultados
-            if st.button("🗑️ Limpar Resultados", key="clear_results"):
-                set_session_value("generated_stories", None)
-                st.rerun()
+            # Botões de ação
+            col1, col2 = st.columns([1, 1])
+            
+            with col1:
+                # Botão para salvar em TXT
+                if st.button("💾 Salvar em TXT", key="save_stories_txt"):
+                    txt_content = self._generate_stories_txt(stories)
+                    st.download_button(
+                        label="📥 Download histórias.txt",
+                        data=txt_content,
+                        file_name="historias_e_tarefas.txt",
+                        mime="text/plain",
+                        key="download_stories_txt"
+                    )
+            
+            with col2:
+                # Botão para limpar resultados
+                if st.button("🗑️ Limpar Resultados", key="clear_results"):
+                    set_session_value("generated_stories", None)
+                    st.rerun()
+    
+    def _generate_stories_txt(self, stories: Dict[str, Any]) -> str:
+        """
+        Gera o conteúdo em formato TXT das histórias e tarefas.
+        
+        Args:
+            stories: Dicionário contendo as histórias geradas
+            
+        Returns:
+            str: Conteúdo formatado em texto
+        """
+        from datetime import datetime
+        
+        txt_content = []
+        txt_content.append("=" * 80)
+        txt_content.append("               HISTÓRIAS E TAREFAS - CODE GUARDIAN")
+        txt_content.append("=" * 80)
+        txt_content.append(f"Data de geração: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+        txt_content.append("=" * 80)
+        txt_content.append("")
+        
+        # Épico
+        if "epic" in stories:
+            epic = stories["epic"]
+            txt_content.append("🎯 ÉPICO")
+            txt_content.append("-" * 50)
+            txt_content.append(f"Título: {epic['title']}")
+            txt_content.append("")
+            txt_content.append(f"Descrição: {epic['description']}")
+            txt_content.append("")
+            
+            if epic.get('acceptance_criteria'):
+                txt_content.append("Critérios de Aceite:")
+                for criteria in epic['acceptance_criteria']:
+                    txt_content.append(f"  - {criteria}")
+                txt_content.append("")
+            
+            txt_content.append("=" * 80)
+            txt_content.append("")
+        
+        # Histórias de Usuário
+        if "stories" in stories:
+            txt_content.append("📖 HISTÓRIAS DE USUÁRIO")
+            txt_content.append("-" * 50)
+            
+            for i, story in enumerate(stories["stories"], 1):
+                txt_content.append(f"História {i}: {story['title']}")
+                txt_content.append("")
+                txt_content.append(f"Descrição: {story['description']}")
+                txt_content.append("")
+                
+                if story.get('gherkin'):
+                    txt_content.append("Gherkin:")
+                    gherkin_lines = story['gherkin'].strip().split('\n')
+                    for line in gherkin_lines:
+                        txt_content.append(f"  {line}")
+                    txt_content.append("")
+                
+                if story.get('acceptance_criteria'):
+                    txt_content.append("Critérios de Aceite:")
+                    for criteria in story['acceptance_criteria']:
+                        txt_content.append(f"  - {criteria}")
+                    txt_content.append("")
+                
+                if i < len(stories["stories"]):
+                    txt_content.append("-" * 30)
+                    txt_content.append("")
+            
+            txt_content.append("=" * 80)
+            txt_content.append("")
+        
+        # Tarefas
+        if "tasks" in stories:
+            txt_content.append("✅ TAREFAS")
+            txt_content.append("-" * 50)
+            
+            for i, task in enumerate(stories["tasks"], 1):
+                txt_content.append(f"Tarefa {i}: {task['title']}")
+                txt_content.append("")
+                txt_content.append(f"Descrição: {task['description']}")
+                
+                if task.get('estimate'):
+                    txt_content.append(f"Estimativa: {task['estimate']}")
+                
+                txt_content.append("")
+                
+                if i < len(stories["tasks"]):
+                    txt_content.append("-" * 30)
+                    txt_content.append("")
+            
+            txt_content.append("=" * 80)
+        
+        txt_content.append("")
+        txt_content.append("Gerado pelo CodeGuardian - Story Creator")
+        txt_content.append("")
+        
+        return "\n".join(txt_content)
     
     def _display_history(self):
         """
