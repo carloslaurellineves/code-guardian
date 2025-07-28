@@ -67,15 +67,12 @@ def start_frontend():
         # Iniciar Streamlit
         import subprocess
         
-        # Comando com parâmetros compatíveis com Windows
+        # Comando com parâmetros compatíveis com Windows e Streamlit atual
         cmd = [
             sys.executable, "-m", "streamlit", "run", 
             str(streamlit_app_path),
             "--server.port", "8501",
-            "--server.address", server_address,
-            "--server.headless", "true",
-            "--server.enableCORS", "false",
-            "--server.enableXsrfProtection", "false"
+            "--server.address", server_address
         ]
         
         print(f"🔧 Executando comando: {' '.join(cmd)}")

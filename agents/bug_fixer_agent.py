@@ -1,4 +1,4 @@
-"""
+﻿"""
 Agente para correção de bugs em código.
 
 Este módulo implementa um agente baseado em LangGraph para identificação
@@ -29,7 +29,7 @@ class BugFixerAgent:
         """Inicializa o agente corretor de código."""
         self.llm_service = AzureLLMService()
         
-    async def fix_bugs(self, request: BugFixRequest) - BugFixResponse:
+    async def fix_bugs(self, request: BugFixRequest) -> BugFixResponse:
         """
         Corrige bugs no código fornecido.
         
@@ -55,7 +55,7 @@ class BugFixerAgent:
             processing_time=0.5  # Em produção, calcular tempo real
         )
         
-    async def analyze_code(self, code: str, language: str) - CodeAnalysis:
+    async def analyze_code(self, code: str, language: str) -> CodeAnalysis:
         """
         Analisa o código para identificação de potencial de melhoria
         e possíveis falhas.

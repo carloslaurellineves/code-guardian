@@ -1,4 +1,4 @@
-"""
+﻿"""
 Configurações principais para a aplicação Code Guardian.
 
 Carrega as variáveis de ambiente usando dotenv para acessar
@@ -7,8 +7,9 @@ informações sensíveis e configurações.
 
 import os
 from pathlib import Path
-from typing import List, Optional
-from pydantic import BaseSettings, Field
+from typing import List, Optional, Union
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings
 
 # Caminho para o arquivo .env
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -48,7 +49,16 @@ class Settings(BaseSettings):
     
     # Configurações de Segurança
     secret_key: str = Field(default="your-secret-key-change-in-production", description="Chave secreta")
-    allowed_origins: List[str] = Field(default=["*"], description="Origens permitidas para CORS")
+    allowed_origins: Union[str, List[str]] = Field(default="*", description="Origens permitidas para CORS")
+    
+    @field_validator('allowed_origins', mode='before')
+    @classmethod
+    def parse_allowed_origins(cls, v):
+        if isinstance(v, str):
+            if ',' in v:
+                return [origin.strip() for origin in v.split(',')]
+            return [v]
+        return v
     
     # Configurações de Banco de Dados
     database_url: str = Field(default="sqlite:///./code_guardian.db", description="URL do banco de dados")
@@ -71,17 +81,11 @@ class Settings(BaseSettings):
     test_azure_openai_api_key: Optional[str] = Field(default=None, description="Chave de teste do Azure OpenAI")
     test_environment: str = Field(default="testing", description="Ambiente de teste")
     
-    class Config:
-        env_file = str(ENV_FILE)
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-        
-        @classmethod
-        def parse_env_var(cls, field_name: str, raw_val: str) -> any:
-            """Parse environment variables with special handling for lists."""
-            if field_name == 'allowed_origins':
-                return [origin.strip() for origin in raw_val.split(',')]
-            return cls.json_loads(raw_val)
+    model_config = {
+        "env_file": str(ENV_FILE),
+        "env_file_encoding": "utf-8",
+        "case_sensitive": False,
+    }
     
     @property
     def is_development(self) -> bool:
@@ -118,4 +122,3 @@ class Settings(BaseSettings):
 
 # Instância global de configurações
 settings = Settings()
-

@@ -8,7 +8,30 @@ e inicializa os componentes necessários para o funcionamento da interface.
 import streamlit as st
 import sys
 from pathlib import Path
-from app.config.streamlit_config import ensure_wide_mode
+
+# IMPORTANTE: Configurar identidade visual antes de qualquer outro comando Streamlit
+st.set_page_config(
+    page_title="CodeGuardian",
+    page_icon="🛡️",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': 'https://github.com/your-repo/code-guardian',
+        'Report a bug': 'https://github.com/your-repo/code-guardian/issues',
+        'About': """
+        # CodeGuardian 🛡️
+        
+        Uma aplicação AI-powered para:
+        - Geração de User Stories
+        - Criação de Testes Unitários
+        - Correção de Bugs
+        
+        Desenvolvido com ❤️ usando Streamlit e LangChain
+        """
+    }
+)
+
+from app.config.streamlit_config import apply_custom_css
 
 # Adicionar diretório raiz ao path
 root_dir = Path(__file__).parent.parent
@@ -56,8 +79,8 @@ def main():
     
     Configura a navegação entre páginas e inicializa o estado da sessão.
     """
-    # Aplicar configuração de wide mode
-    ensure_wide_mode()
+    # Aplicar CSS customizado (identidade visual já foi configurada acima)
+    apply_custom_css()
     
     # Ocultar navegação automática do Streamlit
     hide_streamlit_navigation()

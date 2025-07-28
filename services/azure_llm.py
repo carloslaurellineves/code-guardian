@@ -54,7 +54,7 @@ class AzureLLMService:
                 f"Verifique o arquivo .env."
             )
         
-    async def generate_completion(self, prompt: str, max_tokens: int = 150) - Dict[str, Any]:
+    async def generate_completion(self, prompt: str, max_tokens: int = 150) -> Dict[str, Any]:
         """
         Gera uma conclusão de linguagem baseada no prompt fornecido.
         
@@ -65,18 +65,26 @@ class AzureLLMService:
         Returns:
             Dict[str, Any]: Resposta da API
         """
-        url = f"{self.BASE_URL}{self.MODEL_ENDPOINT}"
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
+        url = f"{self.base_url}/completions?api-version=2023-05-15"
+        
         payload = {
             "prompt": prompt,
-            "max_tokens": max_tokens
+            "max_tokens": max_tokens,
+            "temperature": 0.7,
+            "top_p": 1.0,
+            "stop": None
         }
-        response = await self.client.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-        return response.json()
+        
+        try:
+            response = await self.client.post(url, json=payload)
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPError as e:
+            self.logger.error(f"Erro na chamada para Azure OpenAI: {e}")
+            raise
+        except Exception as e:
+            self.logger.error(f"Erro inesperado: {e}")
+            raise
 
     async def close(self):
         """Fecha o cliente HTTP se necessário."""

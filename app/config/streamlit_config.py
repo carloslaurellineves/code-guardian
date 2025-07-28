@@ -19,7 +19,7 @@ def configure_streamlit():
     if not hasattr(st.session_state, 'streamlit_configured'):
         try:
             st.set_page_config(
-                page_title="Code Guardian",
+                page_title="CodeGuardian",
                 page_icon="🛡️",
                 layout="wide",
                 initial_sidebar_state="expanded",

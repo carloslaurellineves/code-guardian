@@ -127,4 +127,4 @@ class CodeFixerPage:
             # Botão para limpar resultados
             if st.button("🗑️ Limpar Resultados", key="clear_fix_results"):
                 set_session_value("fixed_code", None)
-                st.experimental_rerun()
+                st.rerun()
