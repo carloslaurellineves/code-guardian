@@ -9,6 +9,7 @@ import streamlit as st
 from pathlib import Path
 import sys
 import requests
+import base64
 
 # Adicionar diretório raiz ao path
 root_dir = Path(__file__).parent.parent.parent
@@ -171,17 +172,18 @@ class CodeTesterPage(BasePage):
             content (Union[str, File]): Conteúdo do texto, arquivo ou URL
         """
         if method == "manual":
-            self._generate_tests(code=content)
+            self._generate_tests(method=method, code=content)
         elif method == "upload":
-            self._generate_tests(file=content)
+            self._generate_tests(method=method, file=content)
         elif method == "gitlab":
-            self._generate_tests(gitlab_url=content)
+            self._generate_tests(method=method, gitlab_url=content)
 
-    def _generate_tests(self, code=None, gitlab_url=None, file=None):
+    def _generate_tests(self, method, code=None, gitlab_url=None, file=None):
         """
         Gera testes unitários usando a API do backend.
         
         Args:
+            method: Método de entrada usado (manual, upload, gitlab)
             code: Código fonte para gerar testes (opcional)
             gitlab_url: URL do repositório GitLab (opcional)
             file: Arquivo de código para gerar testes (opcional)
@@ -348,9 +350,41 @@ def test_function_with_external_dependency(mock_service):
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    if st.button(f"📋 Copiar Teste {i}", key=f"copy_test_{i}"):
-                        # Simulação de cópia (em uma implementação real seria com clipboard JS)
-                        st.success(f"✅ Teste {i} copiado para área de transferência!")
+                    # Codificar o teste em base64 para passar para o JavaScript
+                    test_encoded = base64.b64encode(test.encode('utf-8')).decode('utf-8')
+                    copy_button_id = f'copy-button-{i}'
+                    
+                    st.components.v1.html(
+                        f"""
+                        <button id='{copy_button_id}' style='
+                            background-color: #0e1117;
+                            color: white;
+                            border: 1px solid #262730;
+                            border-radius: 0.25rem;
+                            padding: 0.25rem 0.75rem;
+                            font-size: 14px;
+                            cursor: pointer;
+                            font-family: "Source Sans Pro", sans-serif;
+                        '>📋 Copiar Teste {i}</button>
+                        <script>
+                            document.getElementById('{copy_button_id}').onclick = function() {{
+                                try {{
+                                    const testCode = atob('{test_encoded}');
+                                    navigator.clipboard.writeText(testCode).then(function() {{
+                                        alert('✅ Teste {i} copiado para a área de transferência!');
+                                    }}).catch(function(err) {{
+                                        console.error('Erro ao copiar:', err);
+                                        alert('❌ Erro ao copiar o teste. Tente novamente.');
+                                    }});
+                                }} catch(e) {{
+                                    console.error('Erro:', e);
+                                    alert('❌ Erro ao processar o teste.');
+                                }}
+                            }}
+                        </script>
+                        """,
+                        height=40
+                    )
                 
                 with col2:
                     if st.button(f"💾 Baixar Teste {i}", key=f"download_test_{i}"):
