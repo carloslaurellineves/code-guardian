@@ -76,6 +76,47 @@ class CodeTesterPage(BasePage):
         # Armazenar método selecionado
         set_session_value("selected_input_method", input_method)
         
+        # Seleção obrigatória de linguagem
+        st.markdown("### 🎯 Configuração da Linguagem")
+        
+        language_options = {
+            "python": "🐍 Python",
+            "javascript": "🟨 JavaScript", 
+            "typescript": "🔷 TypeScript",
+            "java": "☕ Java",
+            "csharp": "🔷 C#",
+            "go": "🐹 Go",
+            "rust": "🦀 Rust",
+            "php": "🐘 PHP"
+        }
+        
+        selected_language = st.selectbox(
+            "Selecione a linguagem do código **(obrigatório)**:",
+            options=list(language_options.keys()),
+            format_func=lambda x: language_options[x],
+            index=0,  # Python como padrão
+            key="language_selector",
+            help="Escolha a linguagem de programação do código que será testado. Esta seleção garante a geração de testes no framework correto."
+        )
+        
+        # Armazenar linguagem selecionada
+        set_session_value("selected_language", selected_language)
+        
+        # Mostrar framework que será usado
+        framework_mapping = {
+            "python": "pytest",
+            "javascript": "jest",
+            "typescript": "jest", 
+            "java": "junit",
+            "csharp": "nunit",
+            "go": "gotest",
+            "rust": "pytest (fallback)",
+            "php": "pytest (fallback)"
+        }
+        
+        expected_framework = framework_mapping.get(selected_language, "pytest")
+        st.info(f"🔧 **Framework de teste:** {expected_framework} (baseado na linguagem selecionada)")
+        
         # Variáveis para validação
         input_valid = False
         input_content = None
@@ -215,6 +256,28 @@ class CodeTesterPage(BasePage):
         
         return 'python'  # Fallback padrão
     
+    def _get_default_framework(self, language):
+        """
+        Retorna o framework padrão para uma linguagem.
+        
+        Args:
+            language (str): Linguagem de programação
+            
+        Returns:
+            str: Framework padrão
+        """
+        framework_mapping = {
+            "python": "pytest",
+            "javascript": "jest",
+            "typescript": "jest", 
+            "java": "junit",
+            "csharp": "nunit",
+            "go": "gotest",
+            "rust": "pytest",
+            "php": "pytest"
+        }
+        return framework_mapping.get(language, "pytest")
+    
     def _generate_tests(self, method, code=None, gitlab_url=None, file=None):
         """
         Gera testes unitários usando a API do backend.
@@ -227,18 +290,20 @@ class CodeTesterPage(BasePage):
         """
         set_session_value("tests_loading", True)
         
+        # Obter linguagem selecionada pelo usuário (obrigatória)
+        selected_language = get_session_value("selected_language", "python")
+        
         with st.spinner("⚙️ Gerando testes... Por favor, aguarde."):
             try:
                 if file:
                     # Handle file upload com payload JSON correto
                     file_content = file.getvalue().decode('utf-8')
-                    detected_language = self._detect_language(file.name, file_content)
                     
                     payload = {
                         "input_type": "file_upload",
                         "code_content": file_content,
                         "file_name": file.name,
-                        "language": detected_language,
+                        "language": selected_language,  # Usar linguagem selecionada
                         "test_framework": "auto"
                     }
                     response = requests.post(
@@ -246,12 +311,10 @@ class CodeTesterPage(BasePage):
                     )
                 else:
                     # Use code or URL
-                    detected_language = self._detect_language(code_content=code) if code else 'python'
-                    
                     payload = {
                         "input_type": "direct" if code else "gitlab_repo",
                         "code_content": code,
-                        "language": detected_language,
+                        "language": selected_language,  # Usar linguagem selecionada
                         "test_framework": "auto"
                     }
                     
@@ -565,22 +628,27 @@ def test_function_with_external_dependency(mock_service):
         col1, col2, col3 = st.columns([1, 1, 1])
         
         with col1:
-            # Determinar linguagem e extensão baseada nos testes
-            first_test = tests.get("tests", [{}])[0] if tests.get("tests") else {}
-            framework = first_test.get("framework", "pytest")
+            # Usar linguagem selecionada pelo usuário
+            selected_language = get_session_value("selected_language", "python")
             
-            # Mapear framework para linguagem e extensão
-            framework_language_map = {
-                "pytest": ("python", "py"),
-                "unittest": ("python", "py"),
-                "jest": ("javascript", "js"),
-                "mocha": ("javascript", "js"),
-                "junit": ("java", "java"),
-                "nunit": ("csharp", "cs"),
-                "gotest": ("go", "go")
+            # Mapear linguagem para extensão de arquivo
+            language_extension_map = {
+                "python": "py",
+                "javascript": "js",
+                "typescript": "ts",
+                "java": "java",
+                "csharp": "cs",
+                "go": "go",
+                "rust": "rs",
+                "php": "php"
             }
             
-            language, file_extension = framework_language_map.get(framework, ("python", "py"))
+            # Determinar framework baseado nos testes gerados ou usar mapeamento padrão
+            first_test = tests.get("tests", [{}])[0] if tests.get("tests") else {}
+            framework = first_test.get("framework", self._get_default_framework(selected_language))
+            
+            language = selected_language
+            file_extension = language_extension_map.get(selected_language, "txt")
             
             # Gerar cabeçalho de importações conforme linguagem
             header = self._generate_test_header(language, framework)

@@ -10,11 +10,51 @@ from fastapi.responses import JSONResponse
 import time
 from datetime import datetime
 
-from schemas.code_schemas import CodeRequest, CodeResponse
+from schemas.code_schemas import CodeRequest, CodeResponse, CodeLanguage, TestFramework
 from schemas.common_schemas import ErrorResponse
 from agents.test_generator_agent import TestGeneratorAgent
 
 router = APIRouter()
+
+
+def validate_language_framework_consistency(language: CodeLanguage, framework: TestFramework) -> tuple[bool, str]:
+    """
+    Valida se a linguagem é compatível com o framework de teste selecionado.
+    
+    Args:
+        language: Linguagem de programação
+        framework: Framework de teste
+        
+    Returns:
+        tuple[bool, str]: (é_válido, mensagem_erro)
+    """
+    # Mapeamento de linguagens para frameworks compatíveis
+    language_framework_compatibility = {
+        CodeLanguage.PYTHON: [TestFramework.PYTEST, TestFramework.UNITTEST, TestFramework.AUTO],
+        CodeLanguage.JAVASCRIPT: [TestFramework.JEST, TestFramework.MOCHA, TestFramework.AUTO],
+        CodeLanguage.TYPESCRIPT: [TestFramework.JEST, TestFramework.MOCHA, TestFramework.AUTO],
+        CodeLanguage.JAVA: [TestFramework.JUNIT, TestFramework.AUTO],
+        CodeLanguage.CSHARP: [TestFramework.NUNIT, TestFramework.AUTO],
+        CodeLanguage.GO: [TestFramework.GOTEST, TestFramework.AUTO],
+        CodeLanguage.RUST: [TestFramework.PYTEST, TestFramework.AUTO],  # Fallback
+        CodeLanguage.PHP: [TestFramework.PYTEST, TestFramework.AUTO]   # Fallback
+    }
+    
+    compatible_frameworks = language_framework_compatibility.get(language, [TestFramework.AUTO])
+    
+    if framework in compatible_frameworks:
+        return True, ""
+    
+    # Framework não compatível - gerar mensagem de erro informativa
+    framework_names = [f.value for f in compatible_frameworks if f != TestFramework.AUTO]
+    suggested_frameworks = ", ".join(framework_names) if framework_names else "AUTO"
+    
+    error_message = (
+        f"Framework '{framework.value}' não é compatível com a linguagem '{language.value}'. "
+        f"Frameworks suportados para {language.value}: {suggested_frameworks}"
+    )
+    
+    return False, error_message
 
 
 @router.post(
@@ -40,6 +80,20 @@ async def generate_tests(request: CodeRequest) -> CodeResponse:
     try:
         start_time = time.time()
         
+        # Validar consistência entre linguagem e framework
+        is_valid, error_message = validate_language_framework_consistency(request.language, request.test_framework)
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "error": "LANGUAGE_FRAMEWORK_INCOMPATIBLE",
+                    "message": error_message,
+                    "language": request.language.value,
+                    "framework": request.test_framework.value,
+                    "timestamp": datetime.now().isoformat()
+                }
+            )
+        
         # Inicializar agente gerador de testes
         test_agent = TestGeneratorAgent()
         
@@ -56,7 +110,7 @@ async def generate_tests(request: CodeRequest) -> CodeResponse:
                 "error": "INVALID_TESTS_GENERATED",
                 "message": "Os testes gerados não atendem aos critérios de qualidade",
                 "validation_errors": validation_errors,
-                "timestamp": datetime.now()
+                "timestamp": datetime.now().isoformat()
             }
             raise HTTPException(
                 status_code=422,

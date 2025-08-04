@@ -5,7 +5,7 @@ Este módulo define os modelos de dados compartilhados entre
 diferentes componentes da API.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Any, Optional
 from datetime import datetime
 
@@ -36,6 +36,8 @@ class ErrorResponse(BaseModel):
         details: Detalhes adicionais do erro
         timestamp: Timestamp do erro
     """
+    model_config = ConfigDict(json_encoders={datetime: lambda v: v.isoformat()})
+    
     error: str = Field(..., description="Tipo do erro")
     message: str = Field(..., description="Mensagem de erro")
     details: Optional[Any] = Field(None, description="Detalhes adicionais do erro")
