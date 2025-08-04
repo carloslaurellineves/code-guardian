@@ -28,7 +28,7 @@ class APIClient:
             base_url: URL base da API
         """
         self.base_url = base_url
-        self.timeout = 30
+        self.timeout = 120  # 2 minutos para suportar operações LLM longas
         self.session = requests.Session()
         self.session.headers.update({
             "Content-Type": "application/json",
@@ -43,7 +43,7 @@ class APIClient:
             Dict com o status da API
         """
         try:
-            response = requests.get(f"{self.base_url}/health", timeout=5)
+            response = requests.get(f"{self.base_url}/health", timeout=120)
             response.raise_for_status()
             return {"status": "healthy", "data": response.json()}
         except requests.exceptions.RequestException as e:

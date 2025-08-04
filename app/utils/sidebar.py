@@ -90,8 +90,8 @@ def check_api_status():
     """
     try:
         import requests
-        response = requests.get("http://localhost:8000/api/v1/health", timeout=5)
-        if response.status_code == 200:
+        response = requests.get("http://localhost:8000/api/v1/health", timeout=120)
+        if response.status_code in [200, 201]:
             st.success("✅ API conectada")
         else:
             st.error(f"❌ API retornou código {response.status_code}")

@@ -102,7 +102,7 @@ class CodeFixerPage:
                     json=payload
                 )
                 
-                if response.status_code == 200:
+                if response.status_code in [200, 201]:
                     fixed_code = response.json().get("fixed_code", "")
                     set_session_value("fixed_code", fixed_code)
                     st.success("✅ Código corrigido com sucesso!")

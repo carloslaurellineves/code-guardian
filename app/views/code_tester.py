@@ -178,6 +178,43 @@ class CodeTesterPage(BasePage):
         elif method == "gitlab":
             self._generate_tests(method=method, gitlab_url=content)
 
+    def _detect_language(self, file_name=None, code_content=None):
+        """
+        Detecta a linguagem de programação baseada na extensão do arquivo ou conteúdo.
+        
+        Args:
+            file_name: Nome do arquivo (opcional)
+            code_content: Conteúdo do código (opcional)
+            
+        Returns:
+            str: Linguagem detectada
+        """
+        if file_name:
+            extension = file_name.split('.')[-1].lower()
+            language_map = {
+                'py': 'python',
+                'js': 'javascript', 
+                'ts': 'typescript',
+                'java': 'java',
+                'cs': 'csharp',
+                'go': 'go',
+                'rs': 'rust',
+                'php': 'php'
+            }
+            return language_map.get(extension, 'python')
+        
+        # Detecção básica por conteúdo se não houver nome de arquivo
+        if code_content:
+            code = code_content.lower()
+            if 'def ' in code or 'import ' in code or 'class ' in code:
+                return 'python'
+            elif 'function' in code or 'const' in code or 'let' in code:
+                return 'javascript'
+            elif 'interface' in code or 'type' in code:
+                return 'typescript'
+        
+        return 'python'  # Fallback padrão
+    
     def _generate_tests(self, method, code=None, gitlab_url=None, file=None):
         """
         Gera testes unitários usando a API do backend.
@@ -193,19 +230,45 @@ class CodeTesterPage(BasePage):
         with st.spinner("⚙️ Gerando testes... Por favor, aguarde."):
             try:
                 if file:
-                    # Handle file upload
-                    files = {"file": (file.name, file.getvalue())}
+                    # Handle file upload com payload JSON correto
+                    file_content = file.getvalue().decode('utf-8')
+                    detected_language = self._detect_language(file.name, file_content)
+                    
+                    payload = {
+                        "input_type": "file_upload",
+                        "code_content": file_content,
+                        "file_name": file.name,
+                        "language": detected_language,
+                        "test_framework": "auto"
+                    }
                     response = requests.post(
-                        f"{self.api_base_url}/code/tests/generate", files=files
+                        f"{self.api_base_url}/code/tests/generate", json=payload
                     )
                 else:
                     # Use code or URL
-                    payload = {"code": code, "gitlab_url": gitlab_url}
+                    detected_language = self._detect_language(code_content=code) if code else 'python'
+                    
+                    payload = {
+                        "input_type": "direct" if code else "gitlab_repo",
+                        "code_content": code,
+                        "language": detected_language,
+                        "test_framework": "auto"
+                    }
+                    
+                    # Adicionar URL do GitLab se fornecida
+                    if gitlab_url:
+                        payload["input_type"] = "gitlab_repo"
+                        # Para GitLab, usar um schema diferente se necessário
+                        payload.update({
+                            "repository_url": gitlab_url,
+                            "branch": "main"
+                        })
+                    
                     response = requests.post(
                         f"{self.api_base_url}/code/tests/generate", json=payload
                     )
                 
-                if response.status_code == 200:
+                if response.status_code in [200, 201]:
                     tests = response.json()
                     set_session_value("generated_tests", tests)
                     st.success("✅ Testes gerados com sucesso!")
@@ -344,14 +407,14 @@ def test_function_with_external_dependency(mock_service):
         for i, test in enumerate(tests.get("tests", []), 1):
             with st.expander(f"🧪 Teste Unitário {i}", expanded=i == 1):
                 # Exibir código do teste
-                st.code(test, language="python")
+                st.code(test["test_code"], language="python")
                 
                 # Botões de ação para cada teste
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
                     # Escape do teste para JavaScript, preservando UTF-8
-                    test_escaped = test.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+                    test_escaped = test["test_code"].replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
                     copy_button_id = f'copy-button-{i}'
                     
                     st.components.v1.html(
@@ -391,7 +454,7 @@ def test_function_with_external_dependency(mock_service):
                         # Botão de download
                         st.download_button(
                             label=f"Download test_{i}.py",
-                            data=test,
+                            data=test["test_code"],
                             file_name=f"test_{i}.py",
                             mime="text/python",
                             key=f"download_btn_{i}"

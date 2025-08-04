@@ -24,11 +24,15 @@ class Settings(BaseSettings):
     """
 
     # Configurações do Azure OpenAI
-    azure_openai_endpoint: str = Field(..., description="Endpoint do Azure OpenAI")
-    azure_openai_api_key: str = Field(..., description="Chave da API do Azure OpenAI")
+    azure_openai_endpoint: Optional[str] = Field(default=None, description="Endpoint do Azure OpenAI")
+    azure_openai_api_key: Optional[str] = Field(default=None, description="Chave da API do Azure OpenAI")
     azure_openai_api_version: str = Field(default="2023-12-01-preview", description="Versão da API")
-    azure_openai_deployment_name: str = Field(..., description="Nome do deployment")
+    azure_openai_deployment_name: Optional[str] = Field(default=None, description="Nome do deployment")
     azure_openai_model_name: str = Field(default="gpt-4", description="Nome do modelo")
+    
+    # Configurações da OpenAI Padrão (Fallback)
+    openai_api_key: Optional[str] = Field(default=None, description="Chave da API do OpenAI")
+    openai_model_name: str = Field(default="gpt-4o-mini", description="Nome do modelo OpenAI")
     
     # Configurações do GitLab
     gitlab_api_url: str = Field(default="https://gitlab.com/api/v4", description="URL da API do GitLab")
@@ -110,6 +114,13 @@ class Settings(BaseSettings):
             "api_version": self.azure_openai_api_version,
             "deployment_name": self.azure_openai_deployment_name,
             "model_name": self.azure_openai_model_name
+        }
+    
+    def get_openai_config(self) -> dict:
+        """Get OpenAI configuration as dictionary."""
+        return {
+            "api_key": self.openai_api_key,
+            "model_name": self.openai_model_name
         }
     
     def get_gitlab_config(self) -> dict:

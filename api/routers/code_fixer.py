@@ -44,18 +44,10 @@ async def fix_bugs(request: BugFixRequest) -> BugFixResponse:
         bug_fixer = BugFixerAgent()
         
         # Processar correção
-        fixed_code_data = await bug_fixer.fix_bugs(request)
+        response = await bug_fixer.fix_bugs(request)
         
-        processing_time = time.time() - start_time
-        
-        return BugFixResponse(
-            success=True,
-            fixed_code=fixed_code_data["code"],
-            explanation=fixed_code_data["explanation"],
-            changes_made=fixed_code_data["changes"],
-            prevention_tips=fixed_code_data.get("tips", []),
-            processing_time=processing_time
-        )
+        # A resposta já é um BugFixResponse, retornamos diretamente
+        return response
         
     except Exception as e:
         error_response = ErrorResponse(

@@ -111,7 +111,7 @@ def calculate_file_size_mb(content: str) -> float:
 
 def truncate_text(text: str, max_length: int = 100, suffix: str = "...") -> str:
     """
-    Trunca um texto para um tamanho máximo.
+    Trunca um texto para um tamanho máximo, se necessário.
     
     Args:
         text: Texto a ser truncado
@@ -119,9 +119,9 @@ def truncate_text(text: str, max_length: int = 100, suffix: str = "...") -> str:
         suffix: Sufixo a ser adicionado
         
     Returns:
-        str: Texto truncado
+        str: Texto truncado ou original se dentro do limite
     """
-    if len(text) <= max_length:
+    if len(text) <= max_length or max_length < 0:
         return text
     
     return text[:max_length - len(suffix)] + suffix

@@ -42,7 +42,8 @@ def start_api():
         host="0.0.0.0",
         port=8000,
         reload=True,
-        log_level="info"
+        log_level="info",
+        timeout_keep_alive=180  # 3 minutos para operações longas de LLM
     )
 
 

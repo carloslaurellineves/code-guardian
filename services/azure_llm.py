@@ -31,7 +31,7 @@ class AzureLLMService:
         
         # Configurar cliente HTTP
         self.client = httpx.AsyncClient(
-            timeout=30.0,
+            timeout=120.0,  # 2 minutos para operações LLM longas
             headers={
                 "api-key": self.config["api_key"],
                 "Content-Type": "application/json"
