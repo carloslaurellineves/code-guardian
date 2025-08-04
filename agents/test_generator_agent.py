@@ -489,6 +489,10 @@ class TestGeneratorAgent:
                 # Fallback para regex se AST falhar
                 return self._analyze_code_structure_regex(code_content)
         
+        elif language in [CodeLanguage.JAVASCRIPT, CodeLanguage.TYPESCRIPT]:
+            # Análise de código JavaScript/TypeScript usando regex
+            return self._analyze_javascript_structure(code_content)
+        
         return analysis
     
     def _analyze_code_structure_regex(self, code_content: str) -> Dict[str, Any]:
@@ -516,6 +520,84 @@ class TestGeneratorAgent:
         class_pattern = r'class\s+(\w+)\s*[\(:]'
         classes = re.findall(class_pattern, code_content)
         analysis["classes"] = classes
+        
+        return analysis
+    
+    def _analyze_javascript_structure(self, code_content: str) -> Dict[str, Any]:
+        """
+        Analisa estrutura de código JavaScript/TypeScript usando regex.
+        """
+        import re
+        
+        analysis = {
+            "functions": [],
+            "classes": [],
+            "methods": {},
+            "dependencies": [],
+            "complexity": "medium",
+            "has_external_dependencies": False,
+            "imports": [],
+            "class_details": {}
+        }
+        
+        # Extrair classes JavaScript
+        class_pattern = r'class\s+(\w+)\s*(?:extends\s+\w+)?\s*\{'
+        classes = re.findall(class_pattern, code_content)
+        analysis["classes"] = classes
+        
+        # Para cada classe, extrair seus métodos
+        for class_name in classes:
+            class_methods = []
+            analysis["methods"][class_name] = []
+            analysis["class_details"][class_name] = {
+                "methods": [],
+                "init_params": [],
+                "public_methods": [],
+                "private_methods": []
+            }
+            
+            # Encontrar o bloco da classe
+            class_block_pattern = rf'class\s+{class_name}\s*(?:extends\s+\w+)?\s*\{{([^{{}}]*(?:\{{[^{{}}]*\}}[^{{}}]*)*)\}}'
+            class_match = re.search(class_block_pattern, code_content, re.DOTALL)
+            
+            if class_match:
+                class_body = class_match.group(1)
+                
+                # Extrair métodos (incluindo constructor)
+                method_pattern = r'(?:constructor|\w+)\s*\([^)]*\)\s*\{'
+                methods = re.findall(r'(constructor|\w+)(?=\s*\([^)]*\)\s*\{)', class_body)
+                
+                for method_name in methods:
+                    method_info = {
+                        "name": method_name,
+                        "params": [],  # Simplificado por enquanto
+                        "returns": "any",
+                        "docstring": None
+                    }
+                    
+                    analysis["methods"][class_name].append(method_name)
+                    analysis["class_details"][class_name]["methods"].append(method_info)
+                    
+                    if method_name.startswith('_'):
+                        analysis["class_details"][class_name]["private_methods"].append(method_name)
+                    else:
+                        analysis["class_details"][class_name]["public_methods"].append(method_name)
+        
+        # Extrair funções globais
+        function_pattern = r'function\s+(\w+)\s*\([^)]*\)'
+        functions = re.findall(function_pattern, code_content)
+        analysis["functions"] = functions
+        
+        # Extrair imports/requires
+        import_patterns = [
+            r'import\s+.*?from\s+["\']([^"\']+)["\']',
+            r'require\s*\(\s*["\']([^"\']+)["\']\s*\)',
+            r'import\s*\(\s*["\']([^"\']+)["\']\s*\)'
+        ]
+        
+        for pattern in import_patterns:
+            imports = re.findall(pattern, code_content)
+            analysis["imports"].extend(imports)
         
         return analysis
     
@@ -594,14 +676,19 @@ class TestGeneratorAgent:
         if requested_framework != TestFramework.AUTO:
             return requested_framework
             
-        # Mapear linguagem para framework padrão
+        # Mapear linguagem para framework padrão com fallback documentado
         language_framework_map = {
             CodeLanguage.PYTHON: TestFramework.PYTEST,
             CodeLanguage.JAVASCRIPT: TestFramework.JEST,
+            CodeLanguage.TYPESCRIPT: TestFramework.JEST,
             CodeLanguage.JAVA: TestFramework.JUNIT,
-            CodeLanguage.CSHARP: TestFramework.NUNIT
+            CodeLanguage.CSHARP: TestFramework.NUNIT,
+            CodeLanguage.GO: TestFramework.GOTEST,
+            CodeLanguage.RUST: TestFramework.PYTEST,  # Usando pytest como fallback genérico
+            CodeLanguage.PHP: TestFramework.PYTEST   # Usando pytest como fallback genérico
         }
         
+        # Fallback para linguagens não mapeadas: usar PYTEST como padrão universal
         return language_framework_map.get(language, TestFramework.PYTEST)
         
     def _generate_test_code_fallback(self, test_case: Dict[str, Any], framework: TestFramework, language: CodeLanguage, class_name: str = None, method_info: Dict[str, Any] = None) -> str:
@@ -647,23 +734,42 @@ def {test_case["name"]}():
 '''
         
         elif language == CodeLanguage.JAVASCRIPT and framework == TestFramework.JEST:
+            method_name = test_case.get("target_function", "targetMethod")
+            class_name = class_name or "TargetClass"
             return f'''
-const {{ myFunction }} = require('./my-module');
+const {{ {class_name} }} = require('./counter');
 
-describe('My Function Tests', () => {{
+describe('{class_name} Tests', () => {{
     test('{test_case["name"]}', () => {{
         // Arrange
-        const inputData = 'test_input';
-        const expectedResult = 'expected_output';
+        const instance = new {class_name}();
         
         // Act
-        const result = myFunction(inputData);
+        const result = instance.{method_name}();
         
         // Assert
-        expect(result).toBe(expectedResult);
+        expect(result).toBeDefined();
     }});
-}});
-'''
+}});'''
+        
+        elif language == CodeLanguage.TYPESCRIPT and framework == TestFramework.JEST:
+            method_name = test_case.get("target_function", "targetMethod")
+            class_name = class_name or "TargetClass"
+            return f'''
+import {{ {class_name} }} from './counter';
+
+describe('{class_name} Tests', () => {{
+    test('{test_case["name"]}', () => {{
+        // Arrange
+        const instance = new {class_name}();
+        
+        // Act
+        const result = instance.{method_name}();
+        
+        // Assert
+        expect(result).toBeDefined();
+    }});
+}});'''
         
         # Código genérico para outros casos
         return f"// Teste: {test_case['name']}\n// {test_case['description']}\n// TODO: Implementar teste específico (fallback)"
@@ -682,8 +788,11 @@ describe('My Function Tests', () => {{
             TestFramework.PYTEST: ["pytest", "pytest-cov"],
             TestFramework.UNITTEST: [],  # Biblioteca padrão
             TestFramework.JEST: ["jest", "@types/jest"],
+            TestFramework.MOCHA: ["mocha", "chai"],
             TestFramework.JUNIT: ["junit", "mockito"],
-            TestFramework.NUNIT: ["NUnit", "Moq"]
+            TestFramework.NUNIT: ["NUnit", "Moq"],
+            TestFramework.GOTEST: [],  # Biblioteca padrão do Go
+            TestFramework.AUTO: []  # Será determinado dinamicamente
         }
         
         return dependencies_map.get(framework, [])
@@ -785,14 +894,16 @@ describe('My Function Tests', () => {{
     
     def _generate_init_test(self, class_name: str, test_case: Dict[str, Any], params: List[str]) -> str:
         """Gera teste para método __init__."""
+        test_name = test_case["name"]
+        test_description = test_case["description"]
         return f'''
 import pytest
 from your_module import {class_name}
 
-def {test_case["name"]}():
-    \"\"\"
-    {test_case["description"]}
-    \"\"\"
+def {test_name}():
+    """
+    {test_description}
+    """
     # Arrange
     description = "Test transaction"
     amount = 100.0
@@ -808,15 +919,17 @@ def {test_case["name"]}():
     
     def _generate_repr_test(self, class_name: str, method_name: str, test_case: Dict[str, Any]) -> str:
         """Gera teste para métodos __repr__ ou __str__."""
+        test_name = test_case["name"]
+        test_description = test_case["description"]
         return f'''
 import pytest
 from datetime import datetime
 from your_module import {class_name}
 from freezegun import freeze_time
 
-def {test_case["name"]}():
+def {test_name}():
     """
-    {test_case["description"]}
+    {test_description}
     """
     # Arrange
     description = "Test transaction"
@@ -836,15 +949,18 @@ def {test_case["name"]}():
     
     def _generate_balance_test(self, class_name: str, method_name: str, test_case: Dict[str, Any], scenario: str) -> str:
         """Gera teste para métodos relacionados a balanço."""
+        test_name = test_case["name"]
+        test_description = test_case["description"]
+        
         if scenario == "happy_path":
             return f'''
 import pytest
 from your_module import {class_name}, Transaction
 
-def {test_case["name"]}():
-    \"\"\"
-    {test_case["description"]}
-    \"\"\"
+def {test_name}():
+    """
+    {test_description}
+    """
     # Arrange
     wallet = {class_name}("Test User")
     transaction1 = Transaction("Deposit", 100.0)
@@ -863,10 +979,10 @@ def {test_case["name"]}():
 import pytest
 from your_module import {class_name}
 
-def {test_case["name"]}():
-    \"\"\"
-    {test_case["description"]}
-    \"\"\"
+def {test_name}():
+    """
+    {test_description}
+    """
     # Arrange
     wallet = {class_name}("Test User")
     
@@ -881,10 +997,10 @@ def {test_case["name"]}():
 import pytest
 from your_module import {class_name}
 
-def {test_case["name"]}():
-    \"\"\"
-    {test_case["description"]}
-    \"\"\"
+def {test_name}():
+    """
+    {test_description}
+    """
     # Arrange
     wallet = {class_name}("Test User")
     
@@ -896,15 +1012,18 @@ def {test_case["name"]}():
     
     def _generate_transaction_test(self, class_name: str, method_name: str, test_case: Dict[str, Any], scenario: str) -> str:
         """Gera teste para métodos relacionados a transações."""
+        test_name = test_case["name"]
+        test_description = test_case["description"]
+        
         if scenario == "happy_path":
             return f'''
 import pytest
 from your_module import {class_name}, Transaction
 
-def {test_case["name"]}():
-    \"\"\"
-    {test_case["description"]}
-    \"\"\"
+def {test_name}():
+    """
+    {test_description}
+    """
     # Arrange
     wallet = {class_name}("Test User")
     transaction = Transaction("Test Transaction", 100.0)
@@ -921,10 +1040,10 @@ def {test_case["name"]}():
 import pytest
 from your_module import {class_name}, Transaction
 
-def {test_case["name"]}():
-    \"\"\"
-    {test_case["description"]}
-    \"\"\"
+def {test_name}():
+    """
+    {test_description}
+    """
     # Arrange
     wallet = {class_name}("Test User")
     invalid_transaction = Transaction("Invalid", 0.0)
@@ -943,10 +1062,10 @@ def {test_case["name"]}():
 import pytest
 from your_module import {class_name}, Transaction
 
-def {test_case["name"]}():
-    \"\"\"
-    {test_case["description"]}
-    \"\"\"
+def {test_name}():
+    """
+    {test_description}
+    """
     # Arrange
     wallet = {class_name}("Test User")
     large_transaction = Transaction("Large Transaction", 999999.99)
@@ -963,15 +1082,18 @@ def {test_case["name"]}():
     
     def _generate_statement_test(self, class_name: str, method_name: str, test_case: Dict[str, Any], scenario: str) -> str:
         """Gera teste para métodos relacionados a extratos."""
+        test_name = test_case["name"]
+        test_description = test_case["description"]
+        
         if scenario == "happy_path":
             return f'''
 import pytest
 from your_module import {class_name}, Transaction
 
-def {test_case["name"]}():
-    \"\"\"
-    {test_case["description"]}
-    \"\"\"
+def {test_name}():
+    """
+    {test_description}
+    """
     # Arrange
     wallet = {class_name}("Test User")
     transaction1 = Transaction("Transaction 1", 100.0)
@@ -992,10 +1114,10 @@ def {test_case["name"]}():
 import pytest
 from your_module import {class_name}
 
-def {test_case["name"]}():
-    \"\"\"
-    {test_case["description"]}
-    \"\"\"
+def {test_name}():
+    """
+    {test_description}
+    """
     # Arrange
     wallet = {class_name}("Test User")
     
@@ -1011,10 +1133,10 @@ def {test_case["name"]}():
 import pytest
 from your_module import {class_name}
 
-def {test_case["name"]}():
-    \"\"\"
-    {test_case["description"]}
-    \"\"\"
+def {test_name}():
+    """
+    {test_description}
+    """
     # Arrange
     wallet = {class_name}("Test User")
     
@@ -1029,6 +1151,8 @@ def {test_case["name"]}():
         """Gera teste genérico para métodos não específicos."""
         param_setup = ""
         param_call = ""
+        test_name = test_case["name"]
+        test_description = test_case["description"]
         
         if params:
             param_setup = "\n    ".join([f"{param} = 'test_{param}'" for param in params])
@@ -1038,10 +1162,10 @@ def {test_case["name"]}():
 import pytest
 from your_module import {class_name}
 
-def {test_case["name"]}():
-    \"\"\"
-    {test_case["description"]}
-    \"\"\"
+def {test_name}():
+    """
+    {test_description}
+    """
     # Arrange
     instance = {class_name}("test_param")
     {param_setup}

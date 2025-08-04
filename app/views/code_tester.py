@@ -362,6 +362,96 @@ def test_function_with_external_dependency(mock_service):
         set_session_value("generated_tests", mock_tests)
         st.info("💡 Usando testes mockados para demonstração")
     
+    def _generate_test_header(self, language, framework):
+        """
+        Gera o cabeçalho apropriado com importações para cada linguagem/framework.
+        
+        Args:
+            language (str): Linguagem de programação
+            framework (str): Framework de teste
+            
+        Returns:
+            str: Cabeçalho com importações
+        """
+        if language == "python":
+            if framework == "pytest":
+                return "import pytest\nfrom unittest.mock import Mock, patch\n"
+            elif framework == "unittest":
+                return "import unittest\nfrom unittest.mock import Mock, patch\n"
+            else:
+                return "import pytest\n"
+        
+        elif language == "javascript":
+            if framework == "jest":
+                return "const { describe, it, expect, jest } = require('jest');\n"
+            elif framework == "mocha":
+                return "const { describe, it } = require('mocha');\nconst { expect } = require('chai');\n"
+            else:
+                return "// JavaScript test file\n"
+        
+        elif language == "java":
+            return "import org.junit.jupiter.api.Test;\nimport static org.junit.jupiter.api.Assertions.*;\nimport org.mockito.Mock;\nimport org.mockito.junit.jupiter.MockitoExtension;\n"
+        
+        elif language == "csharp":
+            return "using NUnit.Framework;\nusing Moq;\nusing System;\n"
+        
+        elif language == "go":
+            return "package main\n\nimport (\n\t\"testing\"\n\t\"github.com/stretchr/testify/assert\"\n)\n"
+        
+        elif language == "typescript":
+            return "import { describe, it, expect } from '@jest/globals';\n"
+        
+        else:
+            # Fallback genérico
+            return f"// {language.title()} test file\n"
+    
+    def _clean_test_imports(self, test_code, language):
+        """
+        Remove imports do início do código de teste para evitar duplicação.
+        
+        Args:
+            test_code (str): Código do teste
+            language (str): Linguagem de programação
+            
+        Returns:
+            str: Código limpo sem imports
+        """
+        lines = test_code.split('\n')
+        clean_lines = []
+        skip_imports = True
+        
+        for line in lines:
+            stripped_line = line.strip()
+            
+            if language == "python":
+                # Pular imports Python
+                if (stripped_line.startswith('import ') or 
+                    stripped_line.startswith('from ') or 
+                    stripped_line == ''):
+                    if skip_imports:
+                        continue
+                else:
+                    skip_imports = False
+                    clean_lines.append(line)
+            
+            elif language == "javascript":
+                # Pular imports/requires JavaScript
+                if (stripped_line.startswith('const ') and ('require(' in stripped_line or 'import(' in stripped_line) or
+                    stripped_line.startswith('import ') or
+                    stripped_line.startswith('require(') or
+                    stripped_line == ''):
+                    if skip_imports:
+                        continue
+                else:
+                    skip_imports = False
+                    clean_lines.append(line)
+            
+            else:
+                # Para outras linguagens, manter como está
+                clean_lines.append(line)
+        
+        return '\n'.join(clean_lines)
+    
     def _display_results(self):
         """
         Exibe os resultados dos testes gerados.
@@ -451,12 +541,21 @@ def test_function_with_external_dependency(mock_service):
                 
                 with col2:
                     if st.button(f"💾 Baixar Teste {i}", key=f"download_test_{i}"):
+                        # Determinar extensão baseada no framework do teste
+                        framework = test.get("framework", "pytest")
+                        framework_ext_map = {
+                            "pytest": "py", "unittest": "py",
+                            "jest": "js", "mocha": "js", 
+                            "junit": "java", "nunit": "cs", "gotest": "go"
+                        }
+                        file_ext = framework_ext_map.get(framework, "py")
+                        
                         # Botão de download
                         st.download_button(
-                            label=f"Download test_{i}.py",
+                            label=f"Download test_{i}.{file_ext}",
                             data=test["test_code"],
-                            file_name=f"test_{i}.py",
-                            mime="text/python",
+                            file_name=f"test_{i}.{file_ext}",
+                            mime=f"text/{file_ext}",
                             key=f"download_btn_{i}"
                         )
         
@@ -466,15 +565,47 @@ def test_function_with_external_dependency(mock_service):
         col1, col2, col3 = st.columns([1, 1, 1])
         
         with col1:
-            # Botão para baixar todos os testes
-            all_tests = "\n\n# " + "="*50 + "\n\n".join(
-                [f"# TESTE {i+1}\n\n{test}" for i, test in enumerate(tests.get("tests", []))]
-            )
+            # Determinar linguagem e extensão baseada nos testes
+            first_test = tests.get("tests", [{}])[0] if tests.get("tests") else {}
+            framework = first_test.get("framework", "pytest")
+            
+            # Mapear framework para linguagem e extensão
+            framework_language_map = {
+                "pytest": ("python", "py"),
+                "unittest": ("python", "py"),
+                "jest": ("javascript", "js"),
+                "mocha": ("javascript", "js"),
+                "junit": ("java", "java"),
+                "nunit": ("csharp", "cs"),
+                "gotest": ("go", "go")
+            }
+            
+            language, file_extension = framework_language_map.get(framework, ("python", "py"))
+            
+            # Gerar cabeçalho de importações conforme linguagem
+            header = self._generate_test_header(language, framework)
+            
+            # Concatenar todos os códigos de teste limpos (sem estrutura JSON e sem imports duplicados)
+            test_codes = []
+            for test in tests.get("tests", []):
+                if isinstance(test, dict) and "test_code" in test:
+                    # Limpar imports do início do código do teste
+                    clean_code = self._clean_test_imports(test["test_code"], language)
+                    test_codes.append(clean_code)
+                elif isinstance(test, str):
+                    # Limpar imports do início do código do teste
+                    clean_code = self._clean_test_imports(test, language)
+                    test_codes.append(clean_code)
+            
+            # Juntar todos os testes com espaçamento adequado
+            all_tests_code = header + "\n\n".join(test_codes)
+            
+            # Botão de download dos testes completos
             st.download_button(
                 label="💾 Baixar Todos os Testes",
-                data=all_tests,
-                file_name="generated_tests.py",
-                mime="text/python",
+                data=all_tests_code,
+                file_name=f"generated_tests.{file_extension}",
+                mime=f"text/{file_extension}",
                 key="download_all_tests"
             )
         
