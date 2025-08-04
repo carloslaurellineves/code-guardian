@@ -47,9 +47,10 @@ class CodeTesterPage(BasePage):
         with st.expander("📜 Como usar"):
             st.markdown("""
             1. **Selecione o método de entrada**: Escolha entre inserção manual, upload de arquivo ou URL do GitLab
-            2. **Forneça o código**: Preencha o campo correspondente à sua escolha
-            3. **Gere os testes**: Clique no botão para que a IA analise e crie testes unitários
-            4. **Revise os resultados**: Analise os testes gerados e adapte conforme necessário
+            2. **Indique a linguagem**: Escolha a linguagem do código que será testado"
+            3. **Forneça o código**: Preencha o campo correspondente à sua escolha
+            4. **Gere os testes**: Clique no botão para que a IA analise e crie testes unitários
+            5. **Revise os resultados**: Analise os testes gerados e adapte conforme necessário
             
             **📝 Formatos suportados**: Python (.py), JavaScript (.js), TypeScript (.ts), e outros
             """)
@@ -535,20 +536,8 @@ def test_function_with_external_dependency(mock_service):
                 label="📊 Total de Testes", 
                 value=tests.get("total_tests", len(tests.get("tests", [])))
             )
-        
+             
         with col2:
-            method_labels = {
-                "manual": "Entrada Manual",
-                "upload": "Upload de Arquivo", 
-                "gitlab": "URL GitLab"
-            }
-            method_used = tests.get("method_used", "desconhecido")
-            st.metric(
-                label="📝 Método Usado", 
-                value=method_labels.get(method_used, method_used.title())
-            )
-        
-        with col3:
             st.metric(
                 label="✨ Status", 
                 value="Concluído"

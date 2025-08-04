@@ -139,7 +139,11 @@ async def generate_tests(request: CodeRequest) -> CodeResponse:
             timestamp=datetime.now()
         )
         
+        # Serializar o ErrorResponse corretamente
+        error_dict = error_response.dict()
+        error_dict['timestamp'] = error_response.timestamp.isoformat()
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=error_response.dict()
+            detail=error_dict
         )
