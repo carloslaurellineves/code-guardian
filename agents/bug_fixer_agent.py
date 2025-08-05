@@ -66,10 +66,13 @@ class BugFixerAgent:
             # Prompt humano com os dados do bug
             human_prompt = f"""
             MENSAGEM DE ERRO:
-            {request.error_message}
+            {request.error_description}
             
             CÓDIGO COM BUG:
             {request.code_with_bug}
+            
+            LINGUAGEM:
+            {request.language.value}
             
             Por favor, analise o código e corrija o bug identificado pela mensagem de erro.
             """

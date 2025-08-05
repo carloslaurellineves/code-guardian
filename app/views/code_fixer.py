@@ -55,6 +55,27 @@ class CodeFixerPage:
         # Entrada de dados
         st.markdown("## 📝 Descrição do Bug e Código")
 
+        # Seleção de linguagem
+        language_options = {
+            "Python": "python",
+            "JavaScript": "javascript",
+            "TypeScript": "typescript",
+            "Java": "java",
+            "C#": "csharp",
+            "Go": "go",
+            "Rust": "rust",
+            "PHP": "php"
+        }
+        
+        selected_language = st.selectbox(
+            "🔤 Selecione a linguagem do código:",
+            options=list(language_options.keys()),
+            index=0,
+            help="Escolha a linguagem de programação do código com bug"
+        )
+        language_code = language_options[selected_language]
+        set_session_value("selected_language", language_code)
+
         # Mensagem de erro
         error_message = st.text_area(
             "Informe a mensagem de erro:",
@@ -73,51 +94,172 @@ class CodeFixerPage:
         
         # Botão para corrigir código
         if st.button("🚀 Corrigir Código"):
-            if error_message.strip() and bug_code.strip():
-                self._fix_code(error_message, bug_code)
+            if error_message.strip() and bug_code.strip() and language_code:
+                self._fix_code(error_message, bug_code, language_code)
             else:
-                st.error("❌ Informe tanto a mensagem de erro quanto o código problemático.")
+                missing_fields = []
+                if not error_message.strip():
+                    missing_fields.append("mensagem de erro")
+                if not bug_code.strip():
+                    missing_fields.append("código com bug")
+                if not language_code:
+                    missing_fields.append("linguagem")
+                
+                st.error(f"❌ Campos obrigatórios faltantes: {', '.join(missing_fields)}")
         
         # Área de resultados
         self._display_results()
     
-    def _fix_code(self, error_message: str, bug_code: str):
+    def _fix_code(self, error_message: str, bug_code: str, language: str):
         """
         Corrige o código usando a API do backend.
         
         Args:
             error_message: Mensagem de erro fornecida pelo usuário
             bug_code: Código fonte com o bug
+            language: Linguagem de programação
         """
         set_session_value("fix_loading", True)
         
         with st.spinner("🔧 Corrigindo código... Por favor, aguarde."):
             try:
+                # Validação dos campos obrigatórios
+                if not error_message.strip():
+                    st.error("❌ Mensagem de erro é obrigatória")
+                    return
+                if not bug_code.strip():
+                    st.error("❌ Código com bug é obrigatório")
+                    return
+                if not language:
+                    st.error("❌ Linguagem é obrigatória")
+                    return
+                
+                # Payload no formato correto esperado pela API
                 payload = {
-                    "error_message": error_message,
-                    "code": bug_code
+                    "code_with_bug": bug_code,
+                    "error_description": error_message,
+                    "language": language
                 }
+                
+                st.write("**DEBUG - Fazendo requisição para:**", f"{self.api_base_url}/fix/bugs")
+                st.write("**DEBUG - Payload:**")
+                st.json(payload)
+                
                 response = requests.post(
                     f"{self.api_base_url}/fix/bugs",
-                    json=payload
+                    json=payload,
+                    timeout=30
                 )
                 
+                st.write("**DEBUG - Status Code da resposta:**", response.status_code)
+                st.write("**DEBUG - Headers da resposta:**", dict(response.headers))
+                
                 if response.status_code in [200, 201]:
-                    fixed_code = response.json().get("fixed_code", "")
+                    # Processar resposta da API
+                    fixed_code, explanation, changes_made, prevention_tips = self._process_api_response(response)
+                    
+                    if fixed_code is None:
+                        st.error("❌ Erro ao processar resposta da API")
+                        return
+                    
+                    # Armazenar dados na sessão
                     set_session_value("fixed_code", fixed_code)
+                    set_session_value("fix_explanation", explanation)
+                    set_session_value("fix_changes", changes_made)
+                    set_session_value("fix_prevention_tips", prevention_tips)
+                    
                     st.success("✅ Código corrigido com sucesso!")
+                    st.rerun()
+                        
                 else:
                     st.error(f"❌ Erro na API: {response.status_code} - {response.text}")
+                    
             except requests.exceptions.ConnectionError:
                 st.error("❌ Não foi possível conectar à API. Verifique se o backend está rodando.")
                 # Mock para desenvolvimento
                 self._generate_mock_fix(error_message, bug_code)
             except requests.exceptions.Timeout:
                 st.error("⏱️ Timeout na requisição. Tente novamente.")
+            except requests.exceptions.RequestException as e:
+                st.error(f"❌ Erro na requisição: {str(e)}")
+            except ValueError as e:
+                st.error(f"❌ Erro de validação: {str(e)}")
             except Exception as e:
                 st.error(f"❌ Erro inesperado: {str(e)}")
         
         set_session_value("fix_loading", False)
+    
+    def _process_api_response(self, response):
+        """
+        Processa a resposta da API para extrair os dados corretamente.
+        
+        Args:
+            response: Resposta da requisição HTTP
+            
+        Returns:
+            tuple: (fixed_code, explanation, changes_made, prevention_tips)
+        """
+        try:
+            import json
+            
+            # Obter dados JSON da resposta
+            response_data = response.json()
+            
+            # DEBUG: Verificar tipo e conteúdo da resposta
+            st.write("**DEBUG - Tipo da resposta:**", type(response_data))
+            st.write("**DEBUG - Resposta completa:**")
+            st.json(response_data)
+            
+            # Verificar se a resposta é uma string JSON que precisa ser parseada novamente
+            if isinstance(response_data, str):
+                try:
+                    response_data = json.loads(response_data)
+                except json.JSONDecodeError:
+                    st.error("❌ Erro ao processar resposta da API - formato JSON inválido")
+                    return None, None, None, None
+            
+            # Caso especial: se toda a resposta está aninhada como string
+            if isinstance(response_data, str) and response_data.strip().startswith('{'):
+                try:
+                    response_data = json.loads(response_data)
+                except json.JSONDecodeError:
+                    pass
+            
+            # Extrair dados da resposta
+            fixed_code = response_data.get("fixed_code", "")
+            explanation = response_data.get("explanation", "")
+            changes_made = response_data.get("changes_made", [])
+            prevention_tips = response_data.get("prevention_tips", [])
+            
+            # Caso especial: verificar se fixed_code contém JSON aninhado
+            if isinstance(fixed_code, str) and fixed_code.strip().startswith('{'):
+                try:
+                    # Se fixed_code for um JSON string, parsear e extrair o código
+                    parsed_data = json.loads(fixed_code)
+                    if isinstance(parsed_data, dict):
+                        actual_fixed_code = parsed_data.get("fixed_code", fixed_code)
+                        actual_explanation = parsed_data.get("explanation", explanation or "")
+                        actual_changes = parsed_data.get("changes_made", changes_made or [])
+                        actual_prevention_tips = parsed_data.get("prevention_tips", prevention_tips or [])
+                        
+                        fixed_code = actual_fixed_code
+                        explanation = actual_explanation
+                        changes_made = actual_changes
+                        prevention_tips = actual_prevention_tips
+                except json.JSONDecodeError:
+                    # Se não conseguir parsear, usar o valor original
+                    pass
+            
+            # Validar se temos pelo menos o código corrigido
+            if not fixed_code:
+                st.error("❌ Código corrigido não encontrado na resposta da API")
+                return None, None, None, None
+            
+            return fixed_code, explanation, changes_made, prevention_tips
+            
+        except Exception as e:
+            st.error(f"❌ Erro ao processar resposta da API: {str(e)}")
+            return None, None, None, None
     
     def _generate_mock_fix(self, error_message: str, bug_code: str):
         """
@@ -158,7 +300,15 @@ class CodeFixerPage:
         # Adicionar comentários explicativos
         fixed_code = self._add_explanation_comments(fixed_code, error_message)
         
+        # Gerar dados mockados adicionais para demonstração
+        explanation = self._generate_mock_explanation(error_message)
+        changes = self._generate_mock_changes(error_message)
+        prevention_tips = self._generate_mock_prevention_tips(error_message)
+        
         set_session_value("fixed_code", fixed_code)
+        set_session_value("fix_explanation", explanation)
+        set_session_value("fix_changes", changes)
+        set_session_value("fix_prevention_tips", prevention_tips)
         st.info("💡 Usando correção mockada para demonstração")
     
     def _fix_name_error(self, code: str, error: str) -> str:
@@ -367,16 +517,53 @@ except Exception as e:
 
     def _display_results(self):
         """
-        Exibe o código corrigido.
+        Exibe os resultados da correção de código de forma organizada.
         """
         fixed_code = get_session_value("fixed_code")
+        fix_explanation = get_session_value("fix_explanation")
+        fix_changes = get_session_value("fix_changes")
+        fix_prevention_tips = get_session_value("fix_prevention_tips", [])
+        selected_language = get_session_value("selected_language", "python")
 
         if fixed_code:
+            # 🔧 Código Corrigido
             st.markdown("## 🔧 Código Corrigido")
-            st.code(fixed_code, language="python")
+            st.code(fixed_code, language=selected_language)
             
-            # Separador
-            st.markdown("---")
+            st.divider()
+            
+            # 💡 Explicação do erro
+            if fix_explanation:
+                with st.expander("💡 **Explicação do Erro**", expanded=True):
+                    # Destacar termos importantes em negrito
+                    explanation_formatted = fix_explanation
+                    # Lista de termos para destacar
+                    terms_to_highlight = [
+                        "erro", "bug", "problema", "exceção", "falha",
+                        "NameError", "TypeError", "SyntaxError", "IndexError", "KeyError", "AttributeError",
+                        "undefined", "null", "NullPointerException", "segmentation fault"
+                    ]
+                    
+                    for term in terms_to_highlight:
+                        explanation_formatted = explanation_formatted.replace(
+                            term, f"**{term}**"
+                        )
+                    
+                    st.markdown(explanation_formatted)
+            
+            # 🛠️ Alterações Realizadas
+            if fix_changes and len(fix_changes) > 0:
+                with st.expander("🛠️ **Alterações Realizadas**", expanded=True):
+                    for i, change in enumerate(fix_changes, 1):
+                        st.markdown(f"{i}. {change}")
+            
+            # ✅ Dicas para Evitar Erros
+            if fix_prevention_tips and len(fix_prevention_tips) > 0:
+                with st.expander("✅ **Dicas para Evitar Erros Similares**", expanded=False):
+                    for tip in fix_prevention_tips:
+                        st.markdown(f"• {tip}")
+            
+            st.divider()
             
             # Botões de ação
             col1, col2, col3 = st.columns([1, 1, 1])
@@ -387,8 +574,7 @@ except Exception as e:
                 code_escaped = fixed_code.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
                 copy_button_id = 'copy-fixed-code-button'
                 
-                st.components.v1.html(
-                    f"""
+                html_content = f"""
                     <button id='{copy_button_id}' style='
                         background-color: #0e1117;
                         color: white;
@@ -416,7 +602,10 @@ except Exception as e:
                             }}
                         }}
                     </script>
-                    """,
+                """
+                
+                st.components.v1.html(
+                    html_content,
                     height=40
                 )
             
@@ -436,4 +625,167 @@ except Exception as e:
                 # Botão para limpar resultados
                 if st.button("🗑️ Limpar Resultados", key="clear_fix_results"):
                     set_session_value("fixed_code", None)
+                    set_session_value("fix_explanation", None)
+                    set_session_value("fix_changes", None)
+                    set_session_value("fix_prevention_tips", None)
                     st.rerun()
+    
+    def _generate_mock_explanation(self, error_message: str) -> str:
+        """
+        Gera explicação mockada baseada no tipo de erro.
+        
+        Args:
+            error_message: Mensagem de erro fornecida
+            
+        Returns:
+            str: Explicação formatada do erro
+        """
+        error_lower = error_message.lower()
+        
+        if "nameerror" in error_lower or "not defined" in error_lower:
+            return "O **erro** NameError ocorre quando você tenta usar uma variável que não foi definida. Isso acontece quando o Python não consegue encontrar a variável no escopo atual ou em escopos anteriores."
+        elif "syntaxerror" in error_lower or "invalid syntax" in error_lower:
+            return "O **erro** SyntaxError indica que há um **problema** na estrutura do código. Geralmente ocorre por parênteses não fechados, dois pontos ausentes ou estruturas mal formadas."
+        elif "indentationerror" in error_lower or "unexpected indent" in error_lower:
+            return "O **erro** IndentationError acontece quando a indentação do código não está correta. Python usa indentação para definir blocos de código, e ela deve ser consistente."
+        elif "typeerror" in error_lower:
+            return "O **erro** TypeError ocorre quando você tenta realizar uma operação em um tipo de dado inadequado. Por exemplo, tentar somar um número com uma string sem conversão."
+        elif "indexerror" in error_lower or "list index out of range" in error_lower:
+            return "O **erro** IndexError acontece quando você tenta acessar um índice que não existe na lista. Isso geralmente ocorre quando a lista está vazia ou o índice é maior que o tamanho da lista."
+        elif "keyerror" in error_lower:
+            return "O **erro** KeyError ocorre quando você tenta acessar uma chave que não existe em um dicionário. É importante verificar se a chave existe antes de acessá-la."
+        elif "attributeerror" in error_lower:
+            return "O **erro** AttributeError acontece quando você tenta acessar um atributo ou método que não existe no objeto. Verifique se o objeto possui o atributo desejado."
+        else:
+            return "O **erro** identificado requer atenção especial. É importante analisar a **exceção** para entender sua causa raiz e implementar a correção adequada."
+    
+    def _generate_mock_changes(self, error_message: str) -> list:
+        """
+        Gera lista de alterações mockadas baseada no tipo de erro.
+        
+        Args:
+            error_message: Mensagem de erro fornecida
+            
+        Returns:
+            list: Lista de alterações realizadas
+        """
+        error_lower = error_message.lower()
+        
+        if "nameerror" in error_lower or "not defined" in error_lower:
+            return [
+                "Adicionadas definições de variáveis antes do uso",
+                "Inicializadas variáveis com valores apropriados",
+                "Verificação de escopo das variáveis"
+            ]
+        elif "syntaxerror" in error_lower or "invalid syntax" in error_lower:
+            return [
+                "Corrigida sintaxe do Python",
+                "Adicionados parênteses faltantes",
+                "Estrutura de código reorganizada"
+            ]
+        elif "indentationerror" in error_lower or "unexpected indent" in error_lower:
+            return [
+                "Corrigida indentação do código",
+                "Padronizada para 4 espaços por nível",
+                "Alinhamento de blocos de código"
+            ]
+        elif "typeerror" in error_lower:
+            return [
+                "Adicionadas conversões de tipo",
+                "Verificação de tipos antes de operações",
+                "Tratamento adequado de diferentes tipos de dados"
+            ]
+        elif "indexerror" in error_lower or "list index out of range" in error_lower:
+            return [
+                "Adicionada verificação de tamanho da lista",
+                "Implementada validação de índices",
+                "Tratamento para listas vazias"
+            ]
+        elif "keyerror" in error_lower:
+            return [
+                "Adicionada verificação de existência de chaves",
+                "Implementado uso de .get() com valor padrão",
+                "Tratamento para chaves inexistentes"
+            ]
+        elif "attributeerror" in error_lower:
+            return [
+                "Adicionada verificação com hasattr()",
+                "Implementada validação de atributos",
+                "Tratamento para objetos sem o atributo"
+            ]
+        else:
+            return [
+                "Adicionado tratamento de exceções",
+                "Implementadas verificações de segurança",
+                "Melhorada robustez do código"
+            ]
+    
+    def _generate_mock_prevention_tips(self, error_message: str) -> list:
+        """
+        Gera dicas de prevenção mockadas baseada no tipo de erro.
+        
+        Args:
+            error_message: Mensagem de erro fornecida
+            
+        Returns:
+            list: Lista de dicas para evitar erros similares
+        """
+        error_lower = error_message.lower()
+        
+        if "nameerror" in error_lower or "not defined" in error_lower:
+            return [
+                "Sempre declare e inicialize variáveis antes de usá-las",
+                "Use nomes de variáveis descritivos e consistentes",
+                "Verifique o escopo das variáveis em funções",
+                "Considere usar ferramentas de linting como pylint"
+            ]
+        elif "syntaxerror" in error_lower or "invalid syntax" in error_lower:
+            return [
+                "Use um editor com destacador de sintaxe",
+                "Verifique se todos os parênteses, colchetes e chaves estão fechados",
+                "Mantenha consistência na indentação",
+                "Execute o código frequentemente durante o desenvolvimento"
+            ]
+        elif "indentationerror" in error_lower or "unexpected indent" in error_lower:
+            return [
+                "Configure seu editor para mostrar espaços e tabs",
+                "Use sempre 4 espaços para indentação em Python",
+                "Evite misturar tabs e espaços",
+                "Use formatadores automáticos como black ou autopep8"
+            ]
+        elif "typeerror" in error_lower:
+            return [
+                "Sempre verifique os tipos de dados antes de operações",
+                "Use type hints para maior clareza",
+                "Implemente validação de entrada",
+                "Considere usar ferramentas como mypy para verificação de tipos"
+            ]
+        elif "indexerror" in error_lower or "list index out of range" in error_lower:
+            return [
+                "Sempre verifique o tamanho de listas antes de acessar índices",
+                "Use enumerate() quando precisar de índices em loops",
+                "Considere usar try/except para capturar IndexError",
+                "Prefira métodos como .get() para dicionários"
+            ]
+        elif "keyerror" in error_lower:
+            return [
+                "Use o método .get() com valores padrão",
+                "Verifique se a chave existe antes de acessá-la",
+                "Considere usar defaultdict para casos específicos",
+                "Implemente tratamento adequado para chaves ausentes"
+            ]
+        elif "attributeerror" in error_lower:
+            return [
+                "Use hasattr() para verificar a existência de atributos",
+                "Consulte a documentação dos objetos que está usando",
+                "Implemente verificações defensivas",
+                "Considere usar getattr() com valores padrão"
+            ]
+        else:
+            return [
+                "Implemente tratamento de exceções robusto",
+                "Escreva testes unitários para seus códigos",
+                "Use logging para rastrear problemas",
+                "Mantenha seu código simples e legível",
+                "Revise e refatore regularmente seu código"
+            ]
