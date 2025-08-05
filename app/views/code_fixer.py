@@ -141,18 +141,11 @@ class CodeFixerPage:
                     "language": language
                 }
                 
-                st.write("**DEBUG - Fazendo requisição para:**", f"{self.api_base_url}/fix/bugs")
-                st.write("**DEBUG - Payload:**")
-                st.json(payload)
-                
                 response = requests.post(
                     f"{self.api_base_url}/fix/bugs",
                     json=payload,
                     timeout=30
                 )
-                
-                st.write("**DEBUG - Status Code da resposta:**", response.status_code)
-                st.write("**DEBUG - Headers da resposta:**", dict(response.headers))
                 
                 if response.status_code in [200, 201]:
                     # Processar resposta da API
@@ -205,11 +198,6 @@ class CodeFixerPage:
             # Obter dados JSON da resposta
             response_data = response.json()
             
-            # DEBUG: Verificar tipo e conteúdo da resposta
-            st.write("**DEBUG - Tipo da resposta:**", type(response_data))
-            st.write("**DEBUG - Resposta completa:**")
-            st.json(response_data)
-            
             # Verificar se a resposta é uma string JSON que precisa ser parseada novamente
             if isinstance(response_data, str):
                 try:
@@ -218,40 +206,61 @@ class CodeFixerPage:
                     st.error("❌ Erro ao processar resposta da API - formato JSON inválido")
                     return None, None, None, None
             
-            # Caso especial: se toda a resposta está aninhada como string
-            if isinstance(response_data, str) and response_data.strip().startswith('{'):
-                try:
-                    response_data = json.loads(response_data)
-                except json.JSONDecodeError:
-                    pass
-            
             # Extrair dados da resposta
-            fixed_code = response_data.get("fixed_code", "")
-            explanation = response_data.get("explanation", "")
-            changes_made = response_data.get("changes_made", [])
-            prevention_tips = response_data.get("prevention_tips", [])
+            if isinstance(response_data, dict):
+                fixed_code = response_data.get("fixed_code", "")
+                explanation = response_data.get("explanation", "")
+                changes_made = response_data.get("changes_made", [])
+                prevention_tips = response_data.get("prevention_tips", [])
+            else:
+                st.error("❌ Resposta da API em formato inesperado")
+                return None, None, None, None
             
-            # Caso especial: verificar se fixed_code contém JSON aninhado
-            if isinstance(fixed_code, str) and fixed_code.strip().startswith('{'):
-                try:
-                    # Se fixed_code for um JSON string, parsear e extrair o código
-                    parsed_data = json.loads(fixed_code)
-                    if isinstance(parsed_data, dict):
-                        actual_fixed_code = parsed_data.get("fixed_code", fixed_code)
-                        actual_explanation = parsed_data.get("explanation", explanation or "")
-                        actual_changes = parsed_data.get("changes_made", changes_made or [])
-                        actual_prevention_tips = parsed_data.get("prevention_tips", prevention_tips or [])
-                        
-                        fixed_code = actual_fixed_code
-                        explanation = actual_explanation
-                        changes_made = actual_changes
-                        prevention_tips = actual_prevention_tips
-                except json.JSONDecodeError:
-                    # Se não conseguir parsear, usar o valor original
-                    pass
+            # Verificar se fixed_code contém JSON (problema comum com LLMs)
+            if isinstance(fixed_code, str):
+                # Caso 1: fixed_code é um JSON completo
+                if fixed_code.strip().startswith('{') and fixed_code.strip().endswith('}'):
+                    try:
+                        parsed_data = json.loads(fixed_code)
+                        if isinstance(parsed_data, dict):
+                            # Extrair os dados do JSON aninhado
+                            actual_fixed_code = parsed_data.get("fixed_code", "")
+                            actual_explanation = parsed_data.get("explanation", explanation or "")
+                            actual_changes = parsed_data.get("changes_made", changes_made or [])
+                            actual_prevention_tips = parsed_data.get("prevention_tips", prevention_tips or [])
+                            
+                            if actual_fixed_code:  # Se conseguiu extrair o código
+                                fixed_code = actual_fixed_code
+                                explanation = actual_explanation or explanation
+                                changes_made = actual_changes or changes_made
+                                prevention_tips = actual_prevention_tips or prevention_tips
+                    except json.JSONDecodeError:
+                        pass
+                
+                # Caso 2: fixed_code contém JSON com quebras de linha ou formatação markdown
+                elif "```json" in fixed_code or "```" in fixed_code:
+                    # Extrair JSON de dentro do markdown
+                    import re
+                    json_match = re.search(r'```(?:json)?\s*({.*?})\s*```', fixed_code, re.DOTALL)
+                    if json_match:
+                        try:
+                            parsed_data = json.loads(json_match.group(1))
+                            if isinstance(parsed_data, dict):
+                                actual_fixed_code = parsed_data.get("fixed_code", "")
+                                actual_explanation = parsed_data.get("explanation", explanation or "")
+                                actual_changes = parsed_data.get("changes_made", changes_made or [])
+                                actual_prevention_tips = parsed_data.get("prevention_tips", prevention_tips or [])
+                                
+                                if actual_fixed_code:
+                                    fixed_code = actual_fixed_code
+                                    explanation = actual_explanation or explanation
+                                    changes_made = actual_changes or changes_made
+                                    prevention_tips = actual_prevention_tips or prevention_tips
+                        except json.JSONDecodeError:
+                            pass
             
-            # Validar se temos pelo menos o código corrigido
-            if not fixed_code:
+            # Validação final
+            if not fixed_code or not isinstance(fixed_code, str):
                 st.error("❌ Código corrigido não encontrado na resposta da API")
                 return None, None, None, None
             
@@ -259,6 +268,8 @@ class CodeFixerPage:
             
         except Exception as e:
             st.error(f"❌ Erro ao processar resposta da API: {str(e)}")
+            import traceback
+            st.error(f"Traceback: {traceback.format_exc()}")
             return None, None, None, None
     
     def _generate_mock_fix(self, error_message: str, bug_code: str):
