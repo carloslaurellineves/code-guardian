@@ -1,9 +1,9 @@
 """
-Factory para inicialização de LLM com fallback para ambiente local.
+Factory para inicialização de LLM com fallback inteligente.
 
-Este módulo implementa a lógica de fallback que verifica primeiro
-se há credenciais do Azure OpenAI disponíveis. Caso não existam,
-utiliza automaticamente o LLM da OpenAI padrão via LangChain.
+Este módulo implementa a lógica de fallback que prioriza Azure OpenAI
+se disponível, e utiliza OpenAI padrão como fallback. Garante que a
+aplicação funcione tanto em ambiente corporativo quanto pessoal.
 """
 
 import os
@@ -33,9 +33,12 @@ class LLMFactory:
     Factory responsável pela criação de instâncias LLM com fallback automático.
     
     Implementa a lógica de verificação de credenciais e inicialização
-    do provedor adequado (Azure OpenAI ou OpenAI padrão).
+    do provedor adequado com prioridade para Azure OpenAI em ambiente corporativo.
 
-    Atualizado para incluir geração de histórias com detalhes e justificativas.
+    Lógica de fallback:
+    1. Tenta Azure OpenAI se credenciais estiverem disponíveis
+    2. Tenta OpenAI padrão como fallback
+    3. Falha apenas se nenhum dos dois estiver configurado
     """
     
     def __init__(self):
@@ -46,12 +49,15 @@ class LLMFactory:
         """
         Verifica se todas as credenciais necessárias do Azure OpenAI estão presentes.
         
+        Suporta tanto AZURE_OPENAI_ENDPOINT quanto AZURE_OPENAI_API_BASE para
+        compatibilidade com diferentes configurações.
+        
         Returns:
             bool: True se todas as credenciais estão disponíveis, False caso contrário
         """
+        # Variáveis obrigatórias
         required_vars = [
             "AZURE_OPENAI_API_KEY",
-            "AZURE_OPENAI_API_BASE", 
             "AZURE_OPENAI_DEPLOYMENT_NAME",
             "AZURE_OPENAI_API_VERSION"
         ]
@@ -61,8 +67,13 @@ class LLMFactory:
             if not os.getenv(var):
                 missing_vars.append(var)
         
+        # Verificar se pelo menos um dos endpoints está configurado
+        endpoint = os.getenv("AZURE_OPENAI_ENDPOINT") or os.getenv("AZURE_OPENAI_API_BASE")
+        if not endpoint:
+            missing_vars.append("AZURE_OPENAI_ENDPOINT ou AZURE_OPENAI_API_BASE")
+        
         if missing_vars:
-            self.logger.info(
+            self.logger.debug(
                 f"Credenciais do Azure OpenAI ausentes: {', '.join(missing_vars)}. "
                 "Tentando fallback para OpenAI padrão."
             )
@@ -85,7 +96,7 @@ class LLMFactory:
                 missing_vars.append(var)
         
         if missing_vars:
-            self.logger.error(
+            self.logger.debug(
                 f"Credenciais da OpenAI padrão ausentes: {', '.join(missing_vars)}."
             )
             return False
@@ -100,9 +111,12 @@ class LLMFactory:
             AzureChatOpenAI: Instância configurada do Azure OpenAI
         """
         try:
+            # Suportar tanto AZURE_OPENAI_ENDPOINT quanto AZURE_OPENAI_API_BASE
+            endpoint = os.getenv("AZURE_OPENAI_ENDPOINT") or os.getenv("AZURE_OPENAI_API_BASE")
+            
             azure_llm = AzureChatOpenAI(
                 api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-                azure_endpoint=os.getenv("AZURE_OPENAI_API_BASE"),
+                azure_endpoint=endpoint,
                 deployment_name=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
                 api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
                 temperature=0.7,
@@ -113,7 +127,7 @@ class LLMFactory:
             
             self.logger.info(
                 f"✅ Azure OpenAI inicializado com sucesso - "
-                f"Endpoint: {os.getenv('AZURE_OPENAI_API_BASE')} | "
+                f"Endpoint: {endpoint} | "
                 f"Deployment: {os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME')}"
             )
             
@@ -151,13 +165,13 @@ class LLMFactory:
             self.logger.error(f"❌ Erro ao inicializar OpenAI padrão: {e}")
             raise LLMInitializationError(f"Falha na inicialização da OpenAI padrão: {e}")
     
-    def load_llm(self) -> BaseChatModel:
+    def initialize_llm_provider(self) -> BaseChatModel:
         """
-        Carrega uma instância de LLM com fallback automático.
+        Inicializa um provedor LLM adequado com lógica de fallback inteligente.
         
-        Verifica primeiro se as credenciais do Azure OpenAI estão disponíveis.
-        Caso não estejam, tenta utilizar a OpenAI padrão.
-        Se nenhuma estiver disponível, levanta uma exceção.
+        A função tenta primeiro utilizar Azure OpenAI se estiver configurado.
+        Se o Azure não estiver disponível, utiliza OpenAI padrão como fallback.
+        Apenas emite erro se nenhum dos dois estiver configurado corretamente.
         
         Returns:
             BaseChatModel: Instância configurada do LLM (Azure ou OpenAI padrão)
@@ -165,33 +179,61 @@ class LLMFactory:
         Raises:
             LLMInitializationError: Quando nenhum provedor pode ser inicializado
         """
-        self.logger.info("🔄 Iniciando processo de carregamento do LLM...")
+        self.logger.info("🔄 Iniciando processo de inicialização do LLM...")
         
-        # Primeira tentativa: Azure OpenAI
-        if self._check_azure_credentials():
+        # Verificar e tentar Azure OpenAI primeiro
+        azure_available = self._check_azure_credentials()
+        if azure_available:
             try:
+                self.logger.info("✅ Credenciais Azure OpenAI detectadas, inicializando...")
                 return self._create_azure_llm()
-            except LLMInitializationError:
-                self.logger.warning("⚠️ Falha no Azure OpenAI, tentando fallback...")
+            except LLMInitializationError as e:
+                self.logger.warning(f"⚠️ Falha no Azure OpenAI: {e}, tentando fallback...")
         
-        # Segunda tentativa: OpenAI padrão
-        if self._check_openai_credentials():
+        # Tentar OpenAI padrão como fallback
+        openai_available = self._check_openai_credentials()
+        if openai_available:
             try:
+                self.logger.info("✅ Credenciais OpenAI padrão detectadas, inicializando...")
                 return self._create_openai_llm()
-            except LLMInitializationError:
-                self.logger.error("❌ Falha também na OpenAI padrão")
+            except LLMInitializationError as e:
+                self.logger.error(f"❌ Falha também na OpenAI padrão: {e}")
         
-        # Nenhum provedor disponível
-        error_msg = (
-            "❌ Nenhum provedor LLM pode ser inicializado. "
-            "Verifique as variáveis de ambiente:\n"
-            "Para Azure OpenAI: AZURE_OPENAI_API_KEY, AZURE_OPENAI_API_BASE, "
+        # Nenhum provedor disponível - gerar mensagem de erro apropriada
+        error_parts = ["❌ Nenhum provedor LLM pode ser inicializado."]
+        
+        if not azure_available and not openai_available:
+            error_parts.append("Nenhuma credencial de LLM configurada no ambiente.")
+        elif not azure_available:
+            error_parts.append("Credenciais Azure OpenAI ausentes ou incompletas.")
+        elif not openai_available:
+            error_parts.append("Credenciais OpenAI padrão ausentes ou incompletas.")
+        
+        error_parts.append(
+            "Configure pelo menos um dos seguintes conjuntos de variáveis no arquivo .env:\n"
+            "- Azure OpenAI: AZURE_OPENAI_API_KEY, AZURE_OPENAI_API_BASE, "
             "AZURE_OPENAI_DEPLOYMENT_NAME, AZURE_OPENAI_API_VERSION\n"
-            "Para OpenAI padrão: OPENAI_API_KEY, OPENAI_MODEL_NAME"
+            "- OpenAI padrão: OPENAI_API_KEY, OPENAI_MODEL_NAME"
         )
         
+        error_msg = " ".join(error_parts)
         self.logger.error(error_msg)
         raise LLMInitializationError(error_msg)
+        
+    def load_llm(self) -> BaseChatModel:
+        """
+        Carrega uma instância de LLM com fallback automático.
+        
+        Mantido por compatibilidade com código existente.
+        Redireciona para o novo método initialize_llm_provider().
+        
+        Returns:
+            BaseChatModel: Instância configurada do LLM (Azure ou OpenAI padrão)
+            
+        Raises:
+            LLMInitializationError: Quando nenhum provedor pode ser inicializado
+        """
+        return self.initialize_llm_provider()
 
 
 # Novos prompts integrados para StoryCreator
